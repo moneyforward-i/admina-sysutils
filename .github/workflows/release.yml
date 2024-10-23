@@ -1,5 +1,9 @@
 name: CD
 
+# パーミッションを追加
+permissions:
+  contents: write
+
 on:
   release:
     types: [created]
@@ -15,14 +19,32 @@ jobs:
           go-version: "1.23"
       - name: Build all platforms
         run: make build-all
-      - name: Create release archive
-        run: tar -czvf admina-sysutils-${{ github.ref_name }}.tar.gz -C bin .
-      - name: Upload release assets
+      - name: Upload Linux binary
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ github.event.release.upload_url }}
-          asset_path: ./admina-sysutils-${{ github.ref_name }}.tar.gz
-          asset_name: admina-sysutils-${{ github.ref_name }}.tar.gz
-          asset_content_type: application/gzip
+          asset_path: ./bin/admina-sysutils-linux-amd64
+          asset_name: admina-sysutils-linux-amd64
+          asset_content_type: application/octet-stream
+
+      - name: Upload Windows binary
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: ./bin/admina-sysutils-windows-amd64.exe
+          asset_name: admina-sysutils-windows-amd64.exe
+          asset_content_type: application/octet-stream
+
+      - name: Upload MacOS binary
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: ./bin/admina-sysutils-darwin-amd64
+          asset_name: admina-sysutils-darwin-amd64
+          asset_content_type: application/octet-stream
