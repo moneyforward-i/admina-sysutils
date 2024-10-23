@@ -1,82 +1,56 @@
 # Admina SysUtils
 
-Admina SysUtils is a command-line tool for automating management tasks.
+Admina SysUtils は、管理タスクを自動化するためのコマンドラインツールです。
 
-## Installation
+## インストール
 
-```
+以下のコマンドを使用してインストールできます：
+
 go install github.com/moneyforward-i/admina-sysutils/cmd/admina-sysutils@latest
-go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
-```
 
-## Usage
+## 使用方法
 
-```
-admina-sysutils --help
-```
+基本的な使用方法は以下の通りです：
 
-## Development
+admina-sysutils [グローバルオプション] <コマンド> [サブコマンド]
 
-### Requirements
+グローバルオプション：
 
-- Go 1.20 or higher
+- --help: ヘルプを表示
+- --debug: デバッグモードを有効化
+- --output <format>: 出力フォーマットを指定（json, markdown, pretty）
 
-### Running during development
+## サポートされているコマンド
 
-To run the program during development, use the following command:
+Admina SysUtils は以下のコマンドをサポートしています：
 
-```
-go run ./cmd/admina-sysutils/main.go
-```
+| コマンド | サブコマンド | オプション | 説明                                     |
+| -------- | ------------ | ---------- | ---------------------------------------- |
+| identity | matrix       | なし       | 組織のアイデンティティマトリックスを表示 |
 
-### Building
+注: グローバルオプション（--help, --debug, --output）はすべてのコマンドで使用可能です。
 
-To build for your local environment:
+## 設定
 
-```
-make build
-```
+Admina SysUtils を使用するには、以下の環境変数を設定する必要があります：
 
-To build for all platforms (Windows, Mac, Linux):
+- `ADMINA_ORGANIZATION_ID`: あなたの組織 ID
+- `ADMINA_API_KEY`: API キー
 
-```
-make build-all
-```
+オプションで以下の環境変数も設定できます：
 
-### Build output location
+- `ADMINA_BASE_URL`: API のベース URL（デフォルトは https://api.itmc.i.moneyforward.com/api/v1）
 
-- Local build: The `admina-sysutils` binary (or `admina-sysutils.exe` for Windows) will be generated in the `bin` directory of the project.
-- Cross-compilation: The following files will be generated in the `bin` directory of the project:
-  - Linux: `admina-sysutils-linux-amd64`
-  - Mac: `admina-sysutils-darwin-amd64`
-  - Windows: `admina-sysutils-windows-amd64.exe`
+## 例
 
-### Running the built file
+アイデンティティマトリックスを JSON 形式で表示：
 
-To run the built file, use the following command in the terminal:
+> admina-sysutils --output pretty identity matrix
 
-# For Linux and Mac
+## ライセンス
 
-```
-./bin/admina-sysutils
-```
+このプロジェクトは Apache License 2.0 の下でリリースされています。詳細は LICENSE ファイルを参照してください。
 
-# For Windows
+## 貢献
 
-```
-.\bin\admina-sysutils.exe
-```
-
-For cross-compiled files, replace the file name accordingly.
-
-### Testing
-
-```
-make test
-```
-
-## License
-
-This project is released under the MIT License. See the [LICENSE](LICENSE) file for details.
-
-go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+プロジェクトへの貢献に興味がある場合は、CONTRIBUTE.md を参照してください。
