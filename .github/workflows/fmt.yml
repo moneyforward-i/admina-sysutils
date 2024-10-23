@@ -1,0 +1,22 @@
+name: Format
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  gofmt:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+      - name: Check formatting
+        run: |
+          go fmt -n ./...
+          if [ $? -ne 0 ]; then
+            echo "フォーマットエラーが検出されました。以下のファイルを確認してください："
+            exit 1
+          fi

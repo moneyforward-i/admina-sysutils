@@ -1,0 +1,52 @@
+# バイナリファイル
+bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# テストバイナリ、ビルドファイル
+*.test
+*.out
+
+# 依存関係ディレクトリ（古いバージョンのGoで使用）
+/vendor/
+
+# IDEやエディタの設定ファイル
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS生成ファイル
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# ログファイル
+*.log
+
+# 一時ファイル
+*.tmp
+
+# Go固有のファイル
+# ビルドキャッシュ
+*.sum
+
+# カバレッジファイル
+*.cover
+
+# プロファイルファイル
+*.prof
+
+# 特定のプロジェクトファイル（必要に応じてコメントを外してください）
+# config.yaml
+# secrets.json
+
+# 環境変数
+.env
