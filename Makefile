@@ -5,7 +5,7 @@ LDFLAGS=-ldflags "-X main.Version=$(VERSION)"
 
 .PHONY: all build test clean lint vet fmt build-all deps
 
-all: clean lint test build
+all: deps clean lint test build
 
 build: clean
 	mkdir -p $(BUILD_DIR)
