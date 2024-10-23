@@ -1,0 +1,30 @@
+linters:
+  disable:
+    - golint  # 非推奨のlinterを無効化
+  enable:
+    - revive  # 推奨される代替linter
+    - govet
+    - errcheck
+    - staticcheck
+    - gosimple
+    - ineffassign
+    - revive
+    - gocyclo
+    - misspell
+    - gosec
+
+linters-settings:
+  gocyclo:
+    min-complexity: 15
+  revive:
+    rules:
+      - name: exported
+        severity: warning
+        disabled: false
+
+issues:
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - gocyclo
+        - errcheck

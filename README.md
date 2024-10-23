@@ -1,79 +1,82 @@
 # Admina SysUtils
 
-Admina SysUtils は管理タスクを自動化するためのコマンドラインツールです。
+Admina SysUtils is a command-line tool for automating management tasks.
 
-## インストール
+## Installation
 
 ```
-go install github.com/yourusername/admina-sysutils/cmd/admina-sysutils@latest
+go install github.com/moneyforward-i/admina-sysutils/cmd/admina-sysutils@latest
+go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 ```
 
-## 使用方法
+## Usage
 
 ```
 admina-sysutils --help
 ```
 
-## 開発
+## Development
 
-### 必要条件
+### Requirements
 
-- Go 1.20 以上
+- Go 1.20 or higher
 
-### 開発時の実行方法
+### Running during development
 
-開発中にプログラムを実行するには、以下のコマンドを使用します：
+To run the program during development, use the following command:
 
 ```
 go run ./cmd/admina-sysutils/main.go
 ```
 
-### ビルド方法
+### Building
 
-ローカル環境用にビルドするには：
+To build for your local environment:
 
 ```
 make build
 ```
 
-すべてのプラットフォーム（Windows、Mac、Linux）用にビルドするには：
+To build for all platforms (Windows, Mac, Linux):
 
 ```
 make build-all
 ```
 
-### ビルドファイルの出力先
+### Build output location
 
-- ローカルビルド: プロジェクトの`bin`ディレクトリに`admina-sysutils`（Windows の場合は`admina-sysutils.exe`）が生成されます。
-- クロスコンパイル: プロジェクトの`bin`ディレクトリに以下のファイルが生成されます：
+- Local build: The `admina-sysutils` binary (or `admina-sysutils.exe` for Windows) will be generated in the `bin` directory of the project.
+- Cross-compilation: The following files will be generated in the `bin` directory of the project:
   - Linux: `admina-sysutils-linux-amd64`
   - Mac: `admina-sysutils-darwin-amd64`
   - Windows: `admina-sysutils-windows-amd64.exe`
 
-### ビルドしたファイルの実行方法
+### Running the built file
 
-ビルドしたファイルを実行するには、ターミナルで以下のコマンドを使用します：
+To run the built file, use the following command in the terminal:
 
-# Linux および Mac の場合
+# For Linux and Mac
 
 ```
 ./bin/admina-sysutils
 ```
 
-# Windows の場合
+# For Windows
 
 ```
 .\bin\admina-sysutils.exe
 ```
 
-クロスコンパイルしたファイルの場合は、ファイル名を適切に置き換えてください。
+For cross-compiled files, replace the file name accordingly.
 
-### テスト
+### Testing
 
 ```
 make test
 ```
 
-## ライセンス
+## License
 
-MIT ライセンスの下で公開されています。詳細は[LICENSE](LICENSE)ファイルを参照してください。
+This project is released under the MIT License. See the [LICENSE](LICENSE) file for details.
+
+go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest

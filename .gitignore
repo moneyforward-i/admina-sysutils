@@ -47,3 +47,6 @@ Thumbs.db
 # 特定のプロジェクトファイル（必要に応じてコメントを外してください）
 # config.yaml
 # secrets.json
+
+# 環境変数
+.env
