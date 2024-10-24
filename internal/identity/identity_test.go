@@ -145,11 +145,12 @@ func TestGetIdentityMatrix(t *testing.T) {
 }
 
 func TestPrintIdentityMatrix(t *testing.T) {
-	organizationID := os.Getenv("ADMINA_ORGANIZATION_ID")
-	apiKey := os.Getenv("ADMINA_API_KEY")
-	if organizationID == "" || apiKey == "" {
-		t.Fatal("ADMINA_ORGANIZATION_ID or ADMINA_API_KEY is not set")
-	}
+	// テスト用の環境変数を設定
+	os.Setenv("ADMINA_ORGANIZATION_ID", "test_org_id")
+	os.Setenv("ADMINA_API_KEY", "test_api_key")
+	// テスト終了時に環境変数をクリア
+	defer os.Unsetenv("ADMINA_ORGANIZATION_ID")
+	defer os.Unsetenv("ADMINA_API_KEY")
 
 	mockClient := setupMockClient(mockIdentityResponse())
 	adminaClient := admina.NewClient(getTestDebugMode())
