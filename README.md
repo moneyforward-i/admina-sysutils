@@ -4,15 +4,25 @@ Admina SysUtils は、管理タスクを自動化するためのコマンドラ�
 
 ## インストール
 
-以下のコマンドを使用してインストールできます：
+最新バージョンは [こちら](https://github.com/moneyforward-i/admina-script/releases) から取得してください。
 
-go install github.com/moneyforward-i/admina-sysutils/cmd/admina-sysutils@latest
+以下は各 OS でのセットアップ方法です：
+
+### Windows
+
+1. リリースページから最新の Windows 用バイナリをダウンロードします。
+2. ダウンロードしたファイルをパスの通った場所に配置します。（またはパスを通します）
+
+### Mac
+
+1. リリースページから最新の Mac 用バイナリをダウンロードします。
+2. ダウンロードしたファイルをパスの通った場所に配置します。（またはパスを通します）
 
 ## 使用方法
 
 基本的な使用方法は以下の通りです：
 
-admina-sysutils [グローバルオプション] <コマンド> [サブコマンド]
+admina-sysutils [グローバルオプション] <コマンド> [サブコマンド] [オプション]
 
 グローバルオプション：
 
@@ -24,11 +34,16 @@ admina-sysutils [グローバルオプション] <コマンド> [サブコマン
 
 Admina SysUtils は以下のコマンドをサポートしています：
 
-| コマンド | サブコマンド | オプション | 説明                                     |
-| -------- | ------------ | ---------- | ---------------------------------------- |
-| identity | matrix       | なし       | 組織のアイデンティティマトリックスを表示 |
-
-注: グローバルオプション（--help, --debug, --output）はすべてのコマンドで使用可能です。
+| コマンド | サブコマンド | オプション                             | 説明                                     | サンプル                                          |
+| -------- | ------------ | -------------------------------------- | ---------------------------------------- | ------------------------------------------------- |
+| identity | matrix       | --output format (json/markdown/pretty) | 組織のアイデンティティマトリックスを表示 | --output pretty                                   |
+| identity | samemerge    | --output format (json/markdown/pretty) | 出力フォーマットを指定                   | --output json                                     |
+|          |              | --parent-domain << domain >>           | 親ドメインを指定                         | --parent-domain example.com                       |
+|          |              | --child-domains << domains >>          | 子ドメインをカンマ区切りで指定           | --child-domains sub1.example.com,sub2.example.com |
+|          |              | --dry-run                              | 実際のマージを実行せずに確認のみ         | --dry-run                                         |
+|          |              | -y                                     | 確認プロンプトをスキップ                 | -y                                                |
+|          |              | --nomask                               | メールアドレスをマスクしない             | --nomask                                          |
+| identity | help         | なし                                   | アイデンティティコマンドのヘルプを表示   | identity help                                     |
 
 ## 設定
 
@@ -36,6 +51,7 @@ Admina SysUtils を使用するには、以下の環境変数を設定する必�
 
 - `ADMINA_ORGANIZATION_ID`: あなたの組織 ID
 - `ADMINA_API_KEY`: API キー
+- `ADMINA_CLI_ROOT`: プロジェクトのルートディレクトリ. この環境変数が設定されていない場合、バイナリを呼び出しているディレクトリをプロジェクトルートとして使用します。
 
 オプションで以下の環境変数も設定できます：
 
@@ -43,9 +59,37 @@ Admina SysUtils を使用するには、以下の環境変数を設定する必�
 
 ## 例
 
-アイデンティティマトリックスを JSON 形式で表示：
+### アイデンティティマトリックスを表示する例：
 
-> admina-sysutils --output pretty identity matrix
+#### Pretty 形式で表示
+
+> ./admina-sysutils --output pretty identity matrix
+
+### 同一メールアドレスのマージ例：
+
+#### ドライランでマージ候補を確認
+
+> ./admina-sysutils identity samemerge --parent-domain example.com --child-domains sub1.example.com,sub2.example.com --dry-run
+
+#### 確認プロンプトなしで実行
+
+> ./admina-sysutils identity samemerge --parent-domain example.com --child-domains sub1.example.com,sub2.example.com -y
+
+#### メールアドレスをマスクせずに JSON 形式で出力
+
+> ./admina-sysutils identity samemerge --parent-domain example.com --child-domains sub1.example.com,sub2.example.com --nomask --output json
+
+## 標準出力と標準エラー出力
+
+Admina SysUtils のコマンドを実行する際、標準出力にはコマンドの結果が、標準エラー出力にはコマンドの実行ログが出力されます。
+
+### 標準出力と標準エラー出力を別々のファイルに出力する例：
+
+> ./admina-sysutils identity samemerge --parent-domain example.com --child-domains sub1.example.com,sub2.example.com --output json > result.json 2> log.txt
+
+## ヘルプの表示例：
+
+> ./admina-sysutils identity help
 
 ## ライセンス
 

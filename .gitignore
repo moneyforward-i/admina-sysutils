@@ -8,11 +8,13 @@ bin/
 
 # テストバイナリ、ビルドファイル
 *.test
-*.out
+.out/
+out/**
 
 # 依存関係ディレクトリ（古いバージョンのGoで使用）
 /vendor/
-
+node_modules/
+node_modules/*
 # IDEやエディタの設定ファイル
 .idea/
 .vscode/
@@ -33,6 +35,8 @@ Thumbs.db
 
 # 一時ファイル
 *.tmp
+./out
+./out/*
 
 # Go固有のファイル
 # ビルドキャッシュ
