@@ -7,20 +7,20 @@ import (
 )
 
 // MockClient は Client インターフェースを実装するモックです
-type MockClient struct {
+type Client struct {
 	Identities []admina.Identity
 	Cursor     string
 	Error      error // エラーケースのテスト用
 }
 
-func (m *MockClient) GetIdentities(ctx context.Context, cursor string) ([]admina.Identity, string, error) {
+func (m *Client) GetIdentities(ctx context.Context, cursor string) ([]admina.Identity, string, error) {
 	if m.Error != nil {
 		return nil, "", m.Error
 	}
 	return m.Identities, m.Cursor, nil
 }
 
-func (m *MockClient) MergeIdentities(ctx context.Context, fromPeopleID, toPeopleID int) error {
+func (m *Client) MergeIdentities(ctx context.Context, fromPeopleID, toPeopleID int) error {
 	if m.Error != nil {
 		return m.Error
 	}

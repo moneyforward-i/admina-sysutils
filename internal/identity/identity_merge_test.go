@@ -16,7 +16,7 @@ func TestMergeIdentitiesWithFormatters(t *testing.T) {
 	// Loggerの初期化
 	logger.Init()
 
-	mockClient := &mock.MockClient{
+	mockClient := &mock.Client{
 		Identities: []admina.Identity{
 			{ID: "1", ManagementType: "internal", EmployeeStatus: "active", Email: "test1@parent-domain.com"},
 			{ID: "2", ManagementType: "external", EmployeeStatus: "active", Email: "test1@child-domain.com"},

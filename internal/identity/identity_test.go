@@ -10,7 +10,7 @@ import (
 )
 
 func TestFetchAllIdentities(t *testing.T) {
-	mockClient := &mock.MockClient{
+	mockClient := &mock.Client{
 		Identities: []admina.Identity{
 			{ID: "1", ManagementType: "internal", EmployeeStatus: "active", Email: "test1@example.com"},
 			{ID: "2", ManagementType: "external", EmployeeStatus: "inactive", Email: "test2@example.com"},

@@ -11,7 +11,7 @@ import (
 )
 
 func TestGetIdentityMatrix(t *testing.T) {
-	mockClient := &mock.MockClient{
+	mockClient := &mock.Client{
 		Identities: []admina.Identity{
 			{ID: "1", ManagementType: "internal", EmployeeStatus: "active", Email: "test1@example.com"},
 			{ID: "2", ManagementType: "external", EmployeeStatus: "inactive", Email: "test2@example.com"},
@@ -29,7 +29,7 @@ func TestPrintIdentityMatrix(t *testing.T) {
 	// Loggerの初期化
 	logger.Init()
 
-	mockClient := &mock.MockClient{
+	mockClient := &mock.Client{
 		Identities: []admina.Identity{
 			{ID: "1", ManagementType: "internal", EmployeeStatus: "active", Email: "test1@example.com"},
 			{ID: "2", ManagementType: "external", EmployeeStatus: "inactive", Email: "test2@example.com"},
