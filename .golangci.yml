@@ -1,14 +1,11 @@
 linters:
-  disable:
-    - golint  # 非推奨のlinterを無効化
   enable:
-    - revive  # 推奨される代替linter
+    - revive  # golintの代替として推奨される
     - govet
     - errcheck
     - staticcheck
     - gosimple
     - ineffassign
-    - revive
     - gocyclo
     - misspell
     - gosec
@@ -21,10 +18,32 @@ linters-settings:
       - name: exported
         severity: warning
         disabled: false
+      - name: package-comments
+        severity: warning
+        disabled: false
+      - name: var-naming
+        severity: warning
+        disabled: false
+
+run:
+  deadline: 5m
 
 issues:
   exclude-rules:
     - path: _test\.go
       linters:
-        - gocyclo
         - errcheck
+        - gosec
+    - path: tools\.go
+      linters:
+        - unused
+        - deadcode
+    # fmt.Println関連の警告を無視
+    - text: "redundant newline"
+      linters:
+        - govet
+
+output:
+  format: colored-line-number
+  print-issued-lines: true
+  print-linter-name: true
