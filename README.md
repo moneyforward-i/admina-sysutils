@@ -79,6 +79,14 @@ Admina SysUtils を使用するには、以下の環境変数を設定する必�
 
 > ./admina-sysutils identity samemerge --parent-domain example.com --child-domains sub1.example.com,sub2.example.com --nomask --output json
 
+## 標準出力と標準エラー出力
+
+Admina SysUtils のコマンドを実行する際、標準出力にはコマンドの結果が、標準エラー出力にはコマンドの実行ログが出力されます。
+
+### 標準出力と標準エラー出力を別々のファイルに出力する例：
+
+> ./admina-sysutils identity samemerge --parent-domain example.com --child-domains sub1.example.com,sub2.example.com --output json > result.json 2> log.txt
+
 ## ヘルプの表示例：
 
 > ./admina-sysutils identity help
