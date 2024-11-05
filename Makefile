@@ -15,7 +15,7 @@ PATH := $(GOBIN):$(GOPATH)/bin:$(PATH)
 
 ## シチュエーションごとのコマンド
 # CI用のテストターゲット
-test-ci: clean deps lint vet test-junit
+test-ci: clean deps lint vet test
 
 # CD用のビルドターゲット
 build-cd: clean deps build-all
