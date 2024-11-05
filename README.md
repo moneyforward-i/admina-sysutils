@@ -4,7 +4,7 @@ Admina SysUtils は、管理タスクを自動化するためのコマンドラ�
 
 ## インストール
 
-最新バージョンは [こちら](https://github.com/moneyforward-i/admina-script/releases) から取得してください。
+最新バージョンは [こちら](https://github.com/moneyforward-i/admina-sysutils/releases) から取得してください。
 
 以下は各 OS でのセットアップ方法です：
 
