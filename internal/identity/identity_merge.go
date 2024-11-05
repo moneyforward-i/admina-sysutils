@@ -226,12 +226,16 @@ type CSVFormatter struct {
 }
 
 func (f *CSVFormatter) Format(result *MergeResult, mergedCount, skippedCount int, noMask bool) (string, error) {
-	// プロジェクトルートのディレクトリを取得
-	projectRoot, err := os.Getwd()
-	if err != nil {
-		return "", fmt.Errorf("failed to get working directory: %v", err)
+	// 環境変数が設定されているか確認
+	projectRoot := os.Getenv("ADMINA_CLI_ROOT")
+	if projectRoot == "" {
+		// 環境変数が設定されていない場合、プロジェクトルートのディレクトリを取得
+		var err error
+		projectRoot, err = os.Getwd()
+		if err != nil {
+			return "", fmt.Errorf("failed to get working directory: %v", err)
+		}
 	}
-	projectRoot = filepath.Dir(filepath.Dir(projectRoot))
 	f.OutputDir = filepath.Join(projectRoot, "out", "data")
 
 	csvWriter, err := NewCSVWriter(f.OutputDir)

@@ -32,6 +32,13 @@ func TestMergeIdentitiesWithFormatters(t *testing.T) {
 		NoMask:       true,
 	}
 
+	projectRoot, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get working directory: %v", err)
+	}
+	projectRoot = filepath.Dir(filepath.Dir(projectRoot))
+	os.Setenv("ADMINA_CLI_ROOT", projectRoot)
+
 	formats := []string{"json", "markdown", "pretty", "csv"}
 	for _, format := range formats {
 		t.Run(format, func(t *testing.T) {
@@ -40,13 +47,6 @@ func TestMergeIdentitiesWithFormatters(t *testing.T) {
 			assert.NoError(t, err)
 
 			if format == "csv" {
-				// プロジェクトルートのディレクトリを取得
-				projectRoot, err := os.Getwd()
-				assert.NoError(t, err)
-
-				// プロジェクトルートの親ディレクトリを取得
-				projectRoot = filepath.Dir(filepath.Dir(projectRoot))
-
 				// CSVファイルの出力ディレクトリを確認
 				outputDir := filepath.Join(projectRoot, "out", "data")
 				logger.LogInfo("Output directory: %s", outputDir)
