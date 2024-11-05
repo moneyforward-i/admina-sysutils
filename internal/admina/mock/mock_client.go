@@ -1,6 +1,8 @@
-package testing
+package mock
 
 import (
+	"context"
+
 	"github.com/moneyforward-i/admina-sysutils/internal/admina"
 )
 
@@ -11,14 +13,14 @@ type MockClient struct {
 	Error      error // エラーケースのテスト用
 }
 
-func (m *MockClient) GetIdentities(cursor string) ([]admina.Identity, string, error) {
+func (m *MockClient) GetIdentities(ctx context.Context, cursor string) ([]admina.Identity, string, error) {
 	if m.Error != nil {
 		return nil, "", m.Error
 	}
 	return m.Identities, m.Cursor, nil
 }
 
-func (m *MockClient) MergeIdentities(parentID, childID int) error {
+func (m *MockClient) MergeIdentities(ctx context.Context, fromPeopleID, toPeopleID int) error {
 	if m.Error != nil {
 		return m.Error
 	}

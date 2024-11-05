@@ -5,6 +5,7 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 jobs:
   go-test:
@@ -19,4 +20,4 @@ jobs:
         env:
           ADMINA_ORGANIZATION_ID: "dummy_organization_id"
           ADMINA_API_KEY: "dummy_api_key"
-        run: make test
+        run: make test-ci

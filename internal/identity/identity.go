@@ -6,12 +6,13 @@ import (
 	"strings"
 
 	"github.com/moneyforward-i/admina-sysutils/internal/admina"
+	"golang.org/x/net/context"
 )
 
 // Client interface defines the methods required for identity operations
 type Client interface {
-	GetIdentities(cursor string) ([]admina.Identity, string, error)
-	MergeIdentities(parentID, childID int) error
+	GetIdentities(ctx context.Context, cursor string) ([]admina.Identity, string, error)
+	MergeIdentities(ctx context.Context, fromPeopleID, toPeopleID int) error
 }
 
 // Common utility functions
@@ -25,7 +26,7 @@ func FetchAllIdentities(client Client) ([]admina.Identity, error) {
 		step++
 		fmt.Fprintf(os.Stderr, "\rProcessing step: %d (Total: %d)", step, totalProcessed)
 
-		identities, cursor, err := client.GetIdentities(nextCursor)
+		identities, cursor, err := client.GetIdentities(context.Background(), nextCursor)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "\n")
 			return nil, fmt.Errorf("failed to fetch identities: %v", err)

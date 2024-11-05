@@ -13,7 +13,8 @@ bin/
 
 # 依存関係ディレクトリ（古いバージョンのGoで使用）
 /vendor/
-
+node_modules/
+node_modules/*
 # IDEやエディタの設定ファイル
 .idea/
 .vscode/

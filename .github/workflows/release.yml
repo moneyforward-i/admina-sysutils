@@ -18,16 +18,16 @@ jobs:
         with:
           go-version: "1.23"
       - name: Build all platforms
-        run: make build-all
+        run: make build-cd
       - name: Upload Linux binary
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ github.event.release.upload_url }}
-          asset_path: ./bin/admina-sysutils-linux-amd64
-          asset_name: admina-sysutils-linux-amd64
-          asset_content_type: application/octet-stream
+          asset_path: ./out/bin/admina-sysutils-linux-amd64.zip
+          asset_name: admina-sysutils-linux-amd64.zip
+          asset_content_type: application/zip
 
       - name: Upload Windows binary
         uses: actions/upload-release-asset@v1
@@ -35,9 +35,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ github.event.release.upload_url }}
-          asset_path: ./bin/admina-sysutils-windows-amd64.exe
-          asset_name: admina-sysutils-windows-amd64.exe
-          asset_content_type: application/octet-stream
+          asset_path: ./out/bin/admina-sysutils-windows-amd64.zip
+          asset_name: admina-sysutils-windows-amd64.zip
+          asset_content_type: application/zip
 
       - name: Upload MacOS binary
         uses: actions/upload-release-asset@v1
@@ -45,6 +45,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ github.event.release.upload_url }}
-          asset_path: ./bin/admina-sysutils-darwin-amd64
-          asset_name: admina-sysutils-darwin-amd64
-          asset_content_type: application/octet-stream
+          asset_path: ./out/bin/admina-sysutils-darwin-amd64.zip
+          asset_name: admina-sysutils-darwin-amd64.zip
+          asset_content_type: application/zip

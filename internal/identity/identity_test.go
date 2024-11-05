@@ -4,8 +4,8 @@ import (
 	"testing"
 
 	"github.com/moneyforward-i/admina-sysutils/internal/admina"
+	mock "github.com/moneyforward-i/admina-sysutils/internal/admina/mock"
 	"github.com/moneyforward-i/admina-sysutils/internal/identity"
-	mock "github.com/moneyforward-i/admina-sysutils/internal/identity/testing"
 	"github.com/stretchr/testify/assert"
 )
 

@@ -2,9 +2,11 @@ package identity
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/moneyforward-i/admina-sysutils/internal/admina"
@@ -47,6 +49,8 @@ type Formatter interface {
 func MergeIdentities(client Client, config *MergeConfig) error {
 	logger.LogInfo("Starting identity merge process")
 
+	ctx := context.Background() // コンテキストを作成
+
 	allIdentities, err := FetchAllIdentities(client)
 	if err != nil {
 		return fmt.Errorf("failed to fetch identities: %v", err)
@@ -80,7 +84,7 @@ func MergeIdentities(client Client, config *MergeConfig) error {
 			}
 		}
 
-		if err := client.MergeIdentities(candidate.Parent.PeopleID, candidate.Child.PeopleID); err != nil {
+		if err := client.MergeIdentities(ctx, candidate.Parent.PeopleID, candidate.Child.PeopleID); err != nil {
 			return fmt.Errorf("failed to merge identities: %v", err)
 		}
 		logger.LogInfo("Successfully merged %s -> %s", candidate.Child.Email, candidate.Parent.Email)
@@ -222,6 +226,14 @@ type CSVFormatter struct {
 }
 
 func (f *CSVFormatter) Format(result *MergeResult, mergedCount, skippedCount int, noMask bool) (string, error) {
+	// プロジェクトルートのディレクトリを取得
+	projectRoot, err := os.Getwd()
+	if err != nil {
+		return "", fmt.Errorf("failed to get working directory: %v", err)
+	}
+	projectRoot = filepath.Dir(filepath.Dir(projectRoot))
+	f.OutputDir = filepath.Join(projectRoot, "out", "data")
+
 	csvWriter, err := NewCSVWriter(f.OutputDir)
 	if err != nil {
 		return "", err

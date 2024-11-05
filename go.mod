@@ -2,7 +2,12 @@ module github.com/moneyforward-i/admina-sysutils
 
 go 1.23.2
 
-require github.com/golangci/golangci-lint v1.61.0
+require (
+	github.com/golangci/golangci-lint v1.61.0
+	github.com/jstemmer/go-junit-report v0.9.1
+	github.com/stretchr/testify v1.9.0
+	golang.org/x/net v0.28.0
+)
 
 require (
 	4d63.com/gocheckcompilerdirectives v1.2.1 // indirect
@@ -148,7 +153,6 @@ require (
 	github.com/ssgreg/nlreturn/v2 v2.2.1 // indirect
 	github.com/stbenjam/no-sprintf-host-port v0.1.1 // indirect
 	github.com/stretchr/objx v0.5.2 // indirect
-	github.com/stretchr/testify v1.9.0 // indirect
 	github.com/subosito/gotenv v1.4.1 // indirect
 	github.com/tdakkota/asciicheck v0.2.0 // indirect
 	github.com/tetafro/godot v1.4.17 // indirect

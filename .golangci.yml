@@ -44,6 +44,6 @@ issues:
         - govet
 
 output:
-  format: colored-line-number
+  formats: colored-line-number
   print-issued-lines: true
   print-linter-name: true

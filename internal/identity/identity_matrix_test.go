@@ -4,8 +4,8 @@ import (
 	"testing"
 
 	"github.com/moneyforward-i/admina-sysutils/internal/admina"
+	mock "github.com/moneyforward-i/admina-sysutils/internal/admina/mock"
 	"github.com/moneyforward-i/admina-sysutils/internal/identity"
-	mock "github.com/moneyforward-i/admina-sysutils/internal/identity/testing"
 	"github.com/moneyforward-i/admina-sysutils/internal/logger"
 	"github.com/stretchr/testify/assert"
 )
@@ -36,6 +36,11 @@ func TestPrintIdentityMatrix(t *testing.T) {
 		},
 	}
 
-	err := identity.PrintIdentityMatrix(mockClient, "json")
-	assert.NoError(t, err)
+	formats := []string{"json", "markdown", "pretty"}
+	for _, format := range formats {
+		t.Run(format, func(t *testing.T) {
+			err := identity.PrintIdentityMatrix(mockClient, format)
+			assert.NoError(t, err)
+		})
+	}
 }

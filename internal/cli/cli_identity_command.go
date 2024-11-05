@@ -163,15 +163,13 @@ type identityClientAdapter struct {
 	client *admina.Client
 }
 
-func (a *identityClientAdapter) GetIdentities(cursor string) ([]admina.Identity, string, error) {
-	ctx := context.Background()
+func (a *identityClientAdapter) GetIdentities(ctx context.Context, cursor string) ([]admina.Identity, string, error) {
 	identities, nextCursor, err := a.client.GetIdentities(ctx, cursor)
 	return identities, nextCursor, err
 }
 
-func (a *identityClientAdapter) MergeIdentities(parentID, childID int) error {
-	ctx := context.Background()
-	return a.client.MergeIdentities(ctx, childID, parentID)
+func (a *identityClientAdapter) MergeIdentities(ctx context.Context, fromPeopleID, toPeopleID int) error {
+	return a.client.MergeIdentities(ctx, fromPeopleID, toPeopleID)
 }
 
 func (c *IdentityCommand) newIdentityClient() identity.Client {
