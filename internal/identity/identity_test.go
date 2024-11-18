@@ -26,13 +26,37 @@ func TestFetchAllIdentities(t *testing.T) {
 }
 
 func TestMaskEmail(t *testing.T) {
-	email := "example@domain.com"
-	maskedEmail := identity.MaskEmail(email)
-	assert.Equal(t, "ex*****@domain.com", maskedEmail)
+	// テスト開始時にマスク処理を有効化
+	identity.SetNoMask(false)
 
-	invalidEmail := "invalid-email"
-	maskedInvalidEmail := identity.MaskEmail(invalidEmail)
-	assert.Equal(t, "invalid-email", maskedInvalidEmail)
+	tests := []struct {
+		name     string
+		email    string
+		expected string
+	}{
+		{
+			name:     "通常のメールアドレス",
+			email:    "example@domain.com",
+			expected: "exa****@domain.com",
+		},
+		{
+			name:     "短いローカルパート",
+			email:    "abc@domain.com",
+			expected: "abc@domain.com",
+		},
+		{
+			name:     "不正なメールアドレス",
+			email:    "invalid-email",
+			expected: "invalid-email",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := identity.MaskEmail(tt.email)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
 }
 
 func TestExtractDomain(t *testing.T) {

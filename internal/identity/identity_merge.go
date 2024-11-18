@@ -19,12 +19,13 @@ type MergeConfig struct {
 	DryRun       bool
 	AutoApprove  bool
 	OutputFormat string
-	NoMask       bool
 }
 
 type MergeCandidate struct {
 	Parent admina.Identity
 	Child  admina.Identity
+	Status string
+	Reason string
 }
 
 type MergeSummary struct {
@@ -43,13 +44,12 @@ type MergeResult struct {
 
 // Formatter はマージ結果のフォーマット方法を定義するインターフェース
 type Formatter interface {
-	Format(result *MergeResult, mergedCount, skippedCount int, noMask bool) (string, error)
+	Format(result *MergeResult, mergedCount, skippedCount int) (string, error)
 }
 
 func MergeIdentities(client Client, config *MergeConfig) error {
 	logger.LogInfo("Starting identity merge process")
-
-	ctx := context.Background() // コンテキストを作成
+	ctx := context.Background()
 
 	allIdentities, err := FetchAllIdentities(client)
 	if err != nil {
@@ -66,28 +66,45 @@ func MergeIdentities(client Client, config *MergeConfig) error {
 
 	// マージ処理の実行
 	for _, candidate := range result.Candidates {
+		// IDのタイプを確認
+		if !isMergeAllowed(candidate.Parent, candidate.Child) {
+			reason := fmt.Sprintf("Merge not allowed from %s to %s", MaskEmail(candidate.Child.Email), MaskEmail(candidate.Parent.Email))
+			logger.LogInfo("%s", reason)
+			candidate.Status = "Failed"
+			candidate.Reason = reason
+			skippedCount++
+			continue
+		}
+
 		if config.DryRun {
-			logger.LogInfo("Dry-run: Would merge %s -> %s", candidate.Child.Email, candidate.Parent.Email)
+			logger.LogInfo("Dry-run: Would merge %s -> %s", MaskEmail(candidate.Child.Email), MaskEmail(candidate.Parent.Email))
+			candidate.Status = "Skipped"
 			skippedCount++
 			continue
 		}
 
 		if !config.AutoApprove {
-			fmt.Printf("Merge %s -> %s? (y/n): ", candidate.Child.Email, candidate.Parent.Email)
+			fmt.Printf("Merge %s -> %s? (y/n): ", MaskEmail(candidate.Child.Email), MaskEmail(candidate.Parent.Email))
 			reader := bufio.NewReader(os.Stdin)
 			response, _ := reader.ReadString('\n')
 			response = strings.TrimSpace(response)
 			if response != "y" {
-				logger.LogInfo("Skipped merging %s -> %s", candidate.Child.Email, candidate.Parent.Email)
+				logger.LogInfo("Skipped merging %s -> %s", MaskEmail(candidate.Child.Email), MaskEmail(candidate.Parent.Email))
+				candidate.Status = "Skipped"
 				skippedCount++
 				continue
 			}
 		}
 
 		if err := client.MergeIdentities(ctx, candidate.Parent.PeopleID, candidate.Child.PeopleID); err != nil {
-			return fmt.Errorf("failed to merge identities: %v", err)
+			reason := fmt.Sprintf("Failed to merge %s -> %s: %v", MaskEmail(candidate.Child.Email), MaskEmail(candidate.Parent.Email), err)
+			logger.LogInfo("%s", reason)
+			candidate.Status = "Failed"
+			candidate.Reason = reason
+			continue
 		}
-		logger.LogInfo("Successfully merged %s -> %s", candidate.Child.Email, candidate.Parent.Email)
+		logger.LogInfo("Successfully merged %s -> %s", MaskEmail(candidate.Child.Email), MaskEmail(candidate.Parent.Email))
+		candidate.Status = "Merged"
 		mergedCount++
 	}
 
@@ -107,7 +124,7 @@ func MergeIdentities(client Client, config *MergeConfig) error {
 	}
 
 	// 結果のフォーマット
-	output, err := formatter.Format(result, mergedCount, skippedCount, config.NoMask)
+	output, err := formatter.Format(result, mergedCount, skippedCount)
 	if err != nil {
 		return fmt.Errorf("failed to format output: %v", err)
 	}
@@ -119,7 +136,7 @@ func MergeIdentities(client Client, config *MergeConfig) error {
 	// CSVファイルの出力
 	logger.LogInfo("Writing CSV files")
 	csvFormatter := &CSVFormatter{OutputDir: "out"}
-	if _, err := csvFormatter.Format(result, mergedCount, skippedCount, config.NoMask); err != nil {
+	if _, err := csvFormatter.Format(result, mergedCount, skippedCount); err != nil {
 		return fmt.Errorf("failed to write CSV files: %v", err)
 	}
 
@@ -140,7 +157,7 @@ func printMergeAnalysis(result *MergeResult) {
 // JSONFormatter の実装
 type JSONFormatter struct{}
 
-func (f *JSONFormatter) Format(result *MergeResult, mergedCount, skippedCount int, noMask bool) (string, error) {
+func (f *JSONFormatter) Format(result *MergeResult, mergedCount, skippedCount int) (string, error) {
 	var output strings.Builder
 
 	for i, candidate := range result.Candidates {
@@ -151,15 +168,13 @@ func (f *JSONFormatter) Format(result *MergeResult, mergedCount, skippedCount in
 			Child  admina.Identity `json:"child"`
 		}{
 			Index:  i + 1,
-			Status: "Skipped",
+			Status: candidate.Status,
 			Parent: candidate.Parent,
 			Child:  candidate.Child,
 		}
 
-		if !noMask {
-			data.Parent.Email = MaskEmail(data.Parent.Email)
-			data.Child.Email = MaskEmail(data.Child.Email)
-		}
+		data.Parent.Email = MaskEmail(data.Parent.Email)
+		data.Child.Email = MaskEmail(data.Child.Email)
 
 		candidateJSON, err := json.Marshal(data)
 		if err != nil {
@@ -175,7 +190,7 @@ func (f *JSONFormatter) Format(result *MergeResult, mergedCount, skippedCount in
 // MarkdownFormatter の実装
 type MarkdownFormatter struct{}
 
-func (f *MarkdownFormatter) Format(result *MergeResult, mergedCount, skippedCount int, noMask bool) (string, error) {
+func (f *MarkdownFormatter) Format(result *MergeResult, mergedCount, skippedCount int) (string, error) {
 	var output strings.Builder
 
 	output.WriteString("# Merge Result\n\n")
@@ -186,12 +201,10 @@ func (f *MarkdownFormatter) Format(result *MergeResult, mergedCount, skippedCoun
 	for i, candidate := range result.Candidates {
 		parentEmail := candidate.Parent.Email
 		childEmail := candidate.Child.Email
-		if !noMask {
-			parentEmail = MaskEmail(parentEmail)
-			childEmail = MaskEmail(childEmail)
-		}
-		output.WriteString(fmt.Sprintf("| %d | Skipped | %s | %s |\n",
-			i+1, parentEmail, childEmail))
+		parentEmail = MaskEmail(parentEmail)
+		childEmail = MaskEmail(childEmail)
+		output.WriteString(fmt.Sprintf("| %d | %s | %s | %s |\n",
+			i+1, candidate.Status, parentEmail, childEmail))
 	}
 
 	return output.String(), nil
@@ -200,19 +213,15 @@ func (f *MarkdownFormatter) Format(result *MergeResult, mergedCount, skippedCoun
 // PrettyFormatter の実装
 type PrettyFormatter struct{}
 
-func (f *PrettyFormatter) Format(result *MergeResult, mergedCount, skippedCount int, noMask bool) (string, error) {
+func (f *PrettyFormatter) Format(result *MergeResult, mergedCount, skippedCount int) (string, error) {
 	var output strings.Builder
 
 	output.WriteString("=== Merge Result ===\n\n")
 	output.WriteString("Candidates:\n")
 
 	for i, candidate := range result.Candidates {
-		parentEmail := candidate.Parent.Email
-		childEmail := candidate.Child.Email
-		if !noMask {
-			parentEmail = MaskEmail(parentEmail)
-			childEmail = MaskEmail(childEmail)
-		}
+		parentEmail := MaskEmail(candidate.Parent.Email)
+		childEmail := MaskEmail(candidate.Child.Email)
 		output.WriteString(fmt.Sprintf("%d. %s -> %s\n",
 			i+1, childEmail, parentEmail))
 	}
@@ -225,7 +234,7 @@ type CSVFormatter struct {
 	OutputDir string
 }
 
-func (f *CSVFormatter) Format(result *MergeResult, mergedCount, skippedCount int, noMask bool) (string, error) {
+func (f *CSVFormatter) Format(result *MergeResult, mergedCount, skippedCount int) (string, error) {
 	// 環境変数が設定されているか確認
 	projectRoot := os.Getenv("ADMINA_CLI_ROOT")
 	if projectRoot == "" {
@@ -248,16 +257,14 @@ func (f *CSVFormatter) Format(result *MergeResult, mergedCount, skippedCount int
 	for _, candidate := range result.Candidates {
 		parentEmail := candidate.Parent.Email
 		childEmail := candidate.Child.Email
-		if !noMask {
-			parentEmail = MaskEmail(parentEmail)
-			childEmail = MaskEmail(childEmail)
-		}
+		parentEmail = MaskEmail(parentEmail)
+		childEmail = MaskEmail(childEmail)
 		mappingRows = append(mappingRows, []string{
 			parentEmail,
 			candidate.Parent.ID,
 			childEmail,
 			candidate.Child.ID,
-			"Skipped",
+			candidate.Status,
 		})
 	}
 
@@ -272,9 +279,7 @@ func (f *CSVFormatter) Format(result *MergeResult, mergedCount, skippedCount int
 	for _, unmapped := range result.Unmapped {
 		childEmail := unmapped.Email
 
-		if !noMask {
-			childEmail = MaskEmail(childEmail)
-		}
+		childEmail = MaskEmail(childEmail)
 
 		unmappedRows = append(unmappedRows, []string{
 			childEmail,
@@ -376,6 +381,27 @@ func findMergeCandidates(identities []admina.Identity, config *MergeConfig) (*Me
 func contains(slice []string, item string) bool {
 	for _, s := range slice {
 		if s == item {
+			return true
+		}
+	}
+	return false
+}
+
+// IDのタイプを確認する関数
+func isMergeAllowed(parent admina.Identity, child admina.Identity) bool {
+	allowedMerges := map[string][]string{
+		"managed":   {"managed"},
+		"external":  {"managed"},
+		"system":    {"external", "managed", "system"},
+		"unknown":   {"managed", "external", "system", "unmanaged"},
+		"unmanaged": {"managed", "external", "system"},
+	}
+
+	childType := child.ManagementType
+	parentType := parent.ManagementType
+
+	for _, allowedType := range allowedMerges[childType] {
+		if parentType == allowedType {
 			return true
 		}
 	}

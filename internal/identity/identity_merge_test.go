@@ -16,57 +16,80 @@ func TestMergeIdentitiesWithFormatters(t *testing.T) {
 	// Loggerの初期化
 	logger.Init()
 
-	mockClient := &mock.Client{
-		Identities: []admina.Identity{
-			{ID: "1", ManagementType: "internal", EmployeeStatus: "active", Email: "test1@parent-domain.com"},
-			{ID: "2", ManagementType: "external", EmployeeStatus: "active", Email: "test1@child-domain.com"},
-			{ID: "3", ManagementType: "external", EmployeeStatus: "active", Email: "unmapped@child-domain.com"},
-		},
+	// テストケースごとにNoMaskの設定を変えてテスト
+	testCases := []struct {
+		name   string
+		noMask bool
+	}{
+		{"WithMask", false},
+		{"WithoutMask", true},
 	}
 
-	config := &identity.MergeConfig{
-		ParentDomain: "parent-domain.com",
-		ChildDomains: []string{"child-domain.com"},
-		DryRun:       true,
-		AutoApprove:  true,
-		NoMask:       true,
-	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// NoMaskの設定
+			identity.SetNoMask(tc.noMask)
 
-	projectRoot, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("failed to get working directory: %v", err)
-	}
-	projectRoot = filepath.Dir(filepath.Dir(projectRoot))
-	os.Setenv("ADMINA_CLI_ROOT", projectRoot)
+			mockClient := &mock.Client{
+				Identities: []admina.Identity{
+					{ID: "1", ManagementType: "internal", EmployeeStatus: "active", Email: "test1@parent-domain.com"},
+					{ID: "2", ManagementType: "external", EmployeeStatus: "active", Email: "test1@child-domain.com"},
+					{ID: "3", ManagementType: "external", EmployeeStatus: "active", Email: "unmapped@child-domain.com"},
+				},
+			}
 
-	formats := []string{"json", "markdown", "pretty", "csv"}
-	for _, format := range formats {
-		t.Run(format, func(t *testing.T) {
-			config.OutputFormat = format
-			err := identity.MergeIdentities(mockClient, config)
-			assert.NoError(t, err)
+			config := &identity.MergeConfig{
+				ParentDomain: "parent-domain.com",
+				ChildDomains: []string{"child-domain.com"},
+				DryRun:       true,
+				AutoApprove:  true,
+			}
 
-			if format == "csv" {
-				// CSVファイルの出力ディレクトリを確認
-				outputDir := filepath.Join(projectRoot, "out", "data")
-				logger.LogInfo("Output directory: %s", outputDir)
-				mappingsPath := filepath.Join(outputDir, "identity_mappings.csv")
-				unmappedPath := filepath.Join(outputDir, "unmapped_child_identities.csv")
+			projectRoot, err := os.Getwd()
+			if err != nil {
+				t.Fatalf("failed to get working directory: %v", err)
+			}
+			projectRoot = filepath.Dir(filepath.Dir(projectRoot))
+			os.Setenv("ADMINA_CLI_ROOT", projectRoot)
 
-				// CSVファイルの存在確認
-				assert.FileExists(t, mappingsPath)
-				assert.FileExists(t, unmappedPath)
+			formats := []string{"json", "markdown", "pretty", "csv"}
+			for _, format := range formats {
+				t.Run(format, func(t *testing.T) {
+					config.OutputFormat = format
+					err := identity.MergeIdentities(mockClient, config)
+					assert.NoError(t, err)
 
-				// CSVファイルの内容を確認
-				mappingsContent, err := os.ReadFile(mappingsPath)
-				assert.NoError(t, err)
-				assert.Contains(t, string(mappingsContent), "test1@parent-domain.com")
-				assert.Contains(t, string(mappingsContent), "test1@child-domain.com")
+					if format == "csv" {
+						// CSVファイルの出力ディレクトリを確認
+						outputDir := filepath.Join(projectRoot, "out", "data")
+						logger.LogInfo("Output directory: %s", outputDir)
+						mappingsPath := filepath.Join(outputDir, "identity_mappings.csv")
+						unmappedPath := filepath.Join(outputDir, "unmapped_child_identities.csv")
 
-				unmappedContent, err := os.ReadFile(unmappedPath)
-				assert.NoError(t, err)
-				// unmappedの内容を確認
-				assert.Contains(t, string(unmappedContent), "unmapped@child-domain.com")
+						// CSVファイルの存在確認
+						assert.FileExists(t, mappingsPath)
+						assert.FileExists(t, unmappedPath)
+
+						// CSVファイルの内容を確認
+						mappingsContent, err := os.ReadFile(mappingsPath)
+						assert.NoError(t, err)
+						if tc.noMask {
+							assert.Contains(t, string(mappingsContent), "test1@parent-domain.com")
+							assert.Contains(t, string(mappingsContent), "test1@child-domain.com")
+						} else {
+							assert.Contains(t, string(mappingsContent), "tes**@parent-domain.com")
+							assert.Contains(t, string(mappingsContent), "tes**@child-domain.com")
+						}
+
+						unmappedContent, err := os.ReadFile(unmappedPath)
+						assert.NoError(t, err)
+						if tc.noMask {
+							assert.Contains(t, string(unmappedContent), "unmapped@child-domain.com")
+						} else {
+							assert.Contains(t, string(unmappedContent), "unm*****@child-domain.com")
+						}
+					}
+				})
 			}
 		})
 	}
