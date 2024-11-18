@@ -1,5 +1,8 @@
 # Admina SysUtils
 
+[![CI](https://github.com/moneyforward-i/admina-sysutils/actions/workflows/test.yml/badge.svg)](https://github.com/moneyforward-i/admina-sysutils/actions/workflows/test.yml)
+[![Latest Release](https://img.shields.io/github/v/release/moneyforward-i/admina-sysutils?include_prereleases)](https://github.com/moneyforward-i/admina-sysutils/releases/latest)
+
 Admina SysUtils は、管理タスクを自動化するためのコマンドラインツールです。
 
 ## インストール
@@ -41,7 +44,7 @@ Admina SysUtils は以下のコマンドをサポートしています：
 |          |              | --parent-domain << domain >>           | 親ドメインを指定                         | --parent-domain example.com                       |
 |          |              | --child-domains << domains >>          | 子ドメインをカンマ区切りで指定           | --child-domains sub1.example.com,sub2.example.com |
 |          |              | --dry-run                              | 実際のマージを実行せずに確認のみ         | --dry-run                                         |
-|          |              | -y                                     | 確認プロンプトをスキップ                 | -y                                                |
+|          |              | --y                                    | 確認プロンプトをスキップ                 | -y                                                |
 |          |              | --nomask                               | メールアドレスをマスクしない             | --nomask                                          |
 | identity | help         | なし                                   | アイデンティティコマンドのヘルプを表示   | identity help                                     |
 
@@ -65,11 +68,15 @@ Admina SysUtils を使用するには、以下の環境変数を設定する必�
 
 > ./admina-sysutils --output pretty identity matrix
 
+![identity matrix](./img/identity_matrix_command.gif)
+
 ### 同一メールアドレスのマージ例：
 
 #### ドライランでマージ候補を確認
 
 > ./admina-sysutils identity samemerge --parent-domain example.com --child-domains sub1.example.com,sub2.example.com --dry-run
+
+![samemerge](./img/identity_merge_command.gif)
 
 #### 確認プロンプトなしで実行
 

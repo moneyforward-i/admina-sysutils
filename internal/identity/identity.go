@@ -47,17 +47,30 @@ func FetchAllIdentities(client Client) ([]admina.Identity, error) {
 	return allIdentities, nil
 }
 
-// Email utility functions
+var noMask bool
+
+// SetNoMask はメールマスクの設定を行います
+func SetNoMask(flag bool) {
+	noMask = flag
+}
+
+// MaskEmail はメールアドレスをマスクします
 func MaskEmail(email string) string {
+	if noMask {
+		return email
+	}
+
 	parts := strings.Split(email, "@")
 	if len(parts) != 2 {
 		return "invalid-email"
 	}
+
 	localPart := parts[0]
-	if len(localPart) <= 2 {
-		return "*****@" + parts[1]
+	if len(localPart) <= 3 {
+		return localPart + "@" + parts[1] // 3文字以下の場合はマスクしない
 	}
-	return localPart[:2] + strings.Repeat("*", len(localPart)-2) + "@" + parts[1]
+
+	return localPart[:3] + strings.Repeat("*", len(localPart)-3) + "@" + parts[1]
 }
 
 func ExtractDomain(email string) string {

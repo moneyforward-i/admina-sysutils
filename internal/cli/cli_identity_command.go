@@ -98,7 +98,7 @@ Samemergeサブコマンドのオプション:
   --dry-run       実際のマージを実行せずシミュレーションを行います
                    変更内容の確認に使用します
 
-  -y              マージの確認プロンプトをスキップします
+  --y              マージの確認プロンプトをスキップします
                    自動化スクリプトでの使用に適しています
 
   --nomask        ログとファイル出力でメールアドレスをマスクしない
@@ -153,9 +153,8 @@ func (c *IdentityCommand) runSameMerge() error {
 		DryRun:       *c.dryRun,
 		AutoApprove:  *c.autoApprove,
 		OutputFormat: *c.outputFormat,
-		NoMask:       *c.noMask,
 	}
-
+	identity.SetNoMask(*c.noMask)
 	return identity.MergeIdentities(client, mergeConfig)
 }
 
