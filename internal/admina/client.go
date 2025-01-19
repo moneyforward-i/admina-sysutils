@@ -74,7 +74,7 @@ func (e *APIError) Error() string {
 }
 
 func (c *Client) debugLog(format string, args ...interface{}) {
-	logger.Debug.Printf(format, args...)
+	logger.LogDebug(format, args...)
 }
 
 func (c *Client) doRequest(ctx context.Context, method, path string, query map[string]string, body interface{}) (*http.Response, error) {

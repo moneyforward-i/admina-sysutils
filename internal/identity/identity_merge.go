@@ -63,32 +63,33 @@ func MergeIdentities(client Client, config *MergeConfig) error {
 
 	mergedCount := 0
 	skippedCount := 0
+	errorCount := 0
 
 	// マージ処理の実行
 	for _, candidate := range result.Candidates {
-		// IDのタイプを確認
-		if !isMergeAllowed(candidate.Parent, candidate.Child) {
-			reason := fmt.Sprintf("Merge not allowed from %s to %s", MaskEmail(candidate.Child.Email), MaskEmail(candidate.Parent.Email))
-			logger.LogInfo("%s", reason)
-			candidate.Status = "Failed"
+		// マージ可否チェック
+		if !isMergeAllowed(candidate.Parent, candidate.Child) { // マージが許可されているか確認
+			reason := fmt.Sprintf("Cannot merge from %s to %s", candidate.Child.ManagementType, candidate.Parent.ManagementType)
+			logger.LogInfo("%s (%s -> %s)", reason, MaskEmail(candidate.Child.Email), MaskEmail(candidate.Parent.Email))
+			candidate.Status = "Skipped"
 			candidate.Reason = reason
 			skippedCount++
 			continue
 		}
 
-		if config.DryRun {
+		if config.DryRun { // ドライランモードかどうか確認
 			logger.LogInfo("Dry-run: Would merge %s -> %s", MaskEmail(candidate.Child.Email), MaskEmail(candidate.Parent.Email))
 			candidate.Status = "Skipped"
 			skippedCount++
 			continue
 		}
 
-		if !config.AutoApprove {
+		if !config.AutoApprove { // 自動承認が有効かどうか確認
 			fmt.Printf("Merge %s -> %s? (y/n): ", MaskEmail(candidate.Child.Email), MaskEmail(candidate.Parent.Email))
 			reader := bufio.NewReader(os.Stdin)
 			response, _ := reader.ReadString('\n')
 			response = strings.TrimSpace(response)
-			if response != "y" {
+			if response != "y" { // ユーザーの入力が "y" でない場合
 				logger.LogInfo("Skipped merging %s -> %s", MaskEmail(candidate.Child.Email), MaskEmail(candidate.Parent.Email))
 				candidate.Status = "Skipped"
 				skippedCount++
@@ -96,11 +97,12 @@ func MergeIdentities(client Client, config *MergeConfig) error {
 			}
 		}
 
-		if err := client.MergeIdentities(ctx, candidate.Parent.PeopleID, candidate.Child.PeopleID); err != nil {
+		if err := client.MergeIdentities(ctx, candidate.Child.PeopleID, candidate.Parent.PeopleID); err != nil { // マージ処理の実行とエラーチェック
 			reason := fmt.Sprintf("Failed to merge %s -> %s: %v", MaskEmail(candidate.Child.Email), MaskEmail(candidate.Parent.Email), err)
 			logger.LogInfo("%s", reason)
 			candidate.Status = "Failed"
 			candidate.Reason = reason
+			errorCount++
 			continue
 		}
 		logger.LogInfo("Successfully merged %s -> %s", MaskEmail(candidate.Child.Email), MaskEmail(candidate.Parent.Email))
@@ -129,9 +131,9 @@ func MergeIdentities(client Client, config *MergeConfig) error {
 		return fmt.Errorf("failed to format output: %v", err)
 	}
 
-	// 結果の出力
+	// 結果の出力（標準出力を使用）
 	logger.LogInfo("Outputting merge results")
-	fmt.Print(output)
+	logger.Print(output) // 実行結果のみ標準出力
 
 	// CSVファイルの出力
 	logger.LogInfo("Writing CSV files")
@@ -140,18 +142,20 @@ func MergeIdentities(client Client, config *MergeConfig) error {
 		return fmt.Errorf("failed to write CSV files: %v", err)
 	}
 
-	// マージ予定の一覧とunmappedな一覧の出力
-	printMergeAnalysis(result)
+	// エラーカウントがある場合は警告として返す
+	if errorCount > 0 {
+		return fmt.Errorf("completed with %d errors, %d merged, %d skipped", errorCount, mergedCount, skippedCount)
+	}
 
 	return nil
 }
 
 func printMergeAnalysis(result *MergeResult) {
 	logger.LogInfo("Printing merge analysis summary")
-	fmt.Println("=== Merge Analysis Summary ===")
-	fmt.Printf("Total merge candidates: %d\n", len(result.Candidates))
-	fmt.Printf("Total unmapped identities: %d\n", len(result.Unmapped))
-	fmt.Println("=== Analysis Complete ===")
+	logger.PrintErr("=== Merge Analysis Summary ===\n")
+	logger.PrintErr("Total merge candidates: %d\n", len(result.Candidates))
+	logger.PrintErr("Total unmapped identities: %d\n", len(result.Unmapped))
+	logger.PrintErr("=== Analysis Complete ===\n")
 }
 
 // JSONFormatter の実装
@@ -297,8 +301,8 @@ func (f *CSVFormatter) Format(result *MergeResult, mergedCount, skippedCount int
 }
 
 func findMergeCandidates(identities []admina.Identity, config *MergeConfig) (*MergeResult, error) {
-	fmt.Printf("=== Starting Merge Analysis ===\n")
-	fmt.Printf("Total identities to process: %d\n", len(identities))
+	logger.PrintErr("=== Starting Merge Analysis ===\n")
+	logger.PrintErr("Total identities to process: %d\n", len(identities))
 
 	// 親ドメインのカウント
 	parentCount := 0
@@ -307,7 +311,7 @@ func findMergeCandidates(identities []admina.Identity, config *MergeConfig) (*Me
 			parentCount++
 		}
 	}
-	fmt.Printf("Parent domain (%s): %d identities\n", config.ParentDomain, parentCount)
+	logger.PrintErr("Parent domain (%s): %d identities\n", config.ParentDomain, parentCount)
 
 	// 子ドメインのカウント
 	childCounts := make(map[string]int)
@@ -318,9 +322,9 @@ func findMergeCandidates(identities []admina.Identity, config *MergeConfig) (*Me
 			}
 		}
 	}
-	fmt.Printf("Child domains:\n")
+	logger.PrintErr("Child domains:\n")
 	for domain, count := range childCounts {
-		fmt.Printf("  - %s: %d identities\n", domain, count)
+		logger.PrintErr("  - %s: %d identities\n", domain, count)
 	}
 
 	// マージ候補の検索
@@ -358,18 +362,18 @@ func findMergeCandidates(identities []admina.Identity, config *MergeConfig) (*Me
 		}
 	}
 
-	// 結果サマリーを出力
-	fmt.Println("=== Merge Analysis Summary ===")
-	fmt.Printf("Scanned identities: %d\n", len(identities))
-	fmt.Printf("Parent domain (%s): %d identities\n", config.ParentDomain, parentCount)
+	// 結果サマリーの出力
+	logger.PrintErr("=== Merge Analysis Summary ===\n")
+	logger.PrintErr("Scanned identities: %d\n", len(identities))
+	logger.PrintErr("Parent domain (%s): %d identities\n", config.ParentDomain, parentCount)
 	for domain, count := range childCounts {
-		fmt.Printf("Child domain (%s): %d identities\n", domain, count)
-		fmt.Printf("  - Matched: %d\n", result.Summary.MatchCounts[domain])
-		fmt.Printf("  - Unmatched: %d\n", result.Summary.UnmappedCounts[domain])
+		logger.PrintErr("Child domain (%s): %d identities\n", domain, count)
+		logger.PrintErr("  - Matched: %d\n", result.Summary.MatchCounts[domain])
+		logger.PrintErr("  - Unmatched: %d\n", result.Summary.UnmappedCounts[domain])
 	}
-	fmt.Printf("Total merge candidates: %d\n", len(result.Candidates))
-	fmt.Printf("Total unmapped identities: %d\n", len(result.Unmapped))
-	fmt.Println("=== Analysis Complete ===")
+	logger.PrintErr("Total merge candidates: %d\n", len(result.Candidates))
+	logger.PrintErr("Total unmapped identities: %d\n", len(result.Unmapped))
+	logger.PrintErr("=== Analysis Complete ===\n")
 
 	result.Summary.MergeCandidates = len(result.Candidates)
 	result.Summary.UnmappedIdentities = len(result.Unmapped)
@@ -391,7 +395,7 @@ func contains(slice []string, item string) bool {
 func isMergeAllowed(parent admina.Identity, child admina.Identity) bool {
 	allowedMerges := map[string][]string{
 		"managed":   {"managed"},
-		"external":  {"managed"},
+		"external":  {"managed", "external"},
 		"system":    {"external", "managed", "system"},
 		"unknown":   {"managed", "external", "system", "unmanaged"},
 		"unmanaged": {"managed", "external", "system"},

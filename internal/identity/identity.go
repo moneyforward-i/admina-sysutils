@@ -2,10 +2,10 @@ package identity
 
 import (
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/moneyforward-i/admina-sysutils/internal/admina"
+	"github.com/moneyforward-i/admina-sysutils/internal/logger"
 	"golang.org/x/net/context"
 )
 
@@ -24,15 +24,16 @@ func FetchAllIdentities(client Client) ([]admina.Identity, error) {
 
 	for {
 		step++
-		fmt.Fprintf(os.Stderr, "\rProcessing step: %d (Total: %d)", step, totalProcessed)
+		logger.PrintErr("\rProcessing step: %d (Total: %d)", step, totalProcessed)
 
 		identities, cursor, err := client.GetIdentities(context.Background(), nextCursor)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "\n")
+			logger.PrintErr("\n")
 			return nil, fmt.Errorf("failed to fetch identities: %v", err)
 		}
 
 		allIdentities = append(allIdentities, identities...)
+
 		totalProcessed += len(identities)
 
 		if cursor == "" {
@@ -41,8 +42,8 @@ func FetchAllIdentities(client Client) ([]admina.Identity, error) {
 		nextCursor = cursor
 	}
 
-	fmt.Fprintf(os.Stderr, "\nProcessing complete. Total steps: %d\n", step)
-	fmt.Fprintf(os.Stderr, "Number of Identities retrieved: %d\n", totalProcessed)
+	logger.PrintErr("\nProcessing complete. Total steps: %d\n", step)
+	logger.PrintErr("Number of Identities retrieved: %d\n", totalProcessed)
 
 	return allIdentities, nil
 }

@@ -62,9 +62,10 @@ func PrintIdentityMatrix(client Client, outputFormat string) error {
 		return fmt.Errorf("failed to format matrix: %v", err)
 	}
 
-	// 結果の出力
+	// 結果の出力（標準出力を使用）
 	logger.LogInfo("Outputting identity matrix")
-	fmt.Print(output)
+	const formatString = "%s"
+	logger.Print(formatString, output)
 	return nil
 }
 

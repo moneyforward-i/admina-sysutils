@@ -63,7 +63,7 @@ func executeCommand(flags *flag.FlagSet, client *admina.Client) error {
 }
 
 func printHelp() {
-	fmt.Print(`Usage: admina-sysutils [--help] [--debug] <command> [subcommand]
+	logger.Print(`Usage: admina-sysutils [--help] [--debug] <command> [subcommand]
 
 Options:
   --help     Show help

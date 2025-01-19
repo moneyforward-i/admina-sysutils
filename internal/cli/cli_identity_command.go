@@ -8,6 +8,7 @@ import (
 
 	"github.com/moneyforward-i/admina-sysutils/internal/admina"
 	"github.com/moneyforward-i/admina-sysutils/internal/identity"
+	"github.com/moneyforward-i/admina-sysutils/internal/logger"
 )
 
 // IdentityCommand handles identity-related operations
@@ -58,7 +59,7 @@ func (c *IdentityCommand) Run(args []string) error {
 		}
 		return c.runSameMerge()
 	case "help":
-		fmt.Println(c.Help())
+		logger.Print(c.Help())
 		return nil
 	default:
 		return fmt.Errorf("不明なサブコマンド: %s", subCmd)
