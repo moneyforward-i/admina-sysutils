@@ -26,7 +26,7 @@ linters-settings:
         disabled: false
 
 run:
-  deadline: 5m
+  timeout: 5m
 
 issues:
   exclude-rules:
@@ -42,8 +42,13 @@ issues:
     - text: "redundant newline"
       linters:
         - govet
+    # identityパッケージのパッケージ名の重複エラーを無視
+    - path: internal/identity/
+      text: "found packages identity .* and identity_test"
+      linters:
+        - typecheck
 
 output:
-  formats: colored-line-number
+  sort-results: true
   print-issued-lines: true
   print-linter-name: true

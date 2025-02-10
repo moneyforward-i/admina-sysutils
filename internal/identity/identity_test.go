@@ -41,8 +41,8 @@ func TestMaskEmail(t *testing.T) {
 		},
 		{
 			name:     "短いローカルパート",
-			email:    "abc@domain.com",
-			expected: "abc@domain.com",
+			email:    "ab@domain.com",
+			expected: "ab@domain.com",
 		},
 		{
 			name:     "不正なメールアドレス",

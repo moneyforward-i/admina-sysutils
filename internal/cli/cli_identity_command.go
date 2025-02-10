@@ -4,10 +4,12 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/moneyforward-i/admina-sysutils/internal/admina"
 	"github.com/moneyforward-i/admina-sysutils/internal/identity"
+	"github.com/moneyforward-i/admina-sysutils/internal/logger"
 )
 
 // IdentityCommand handles identity-related operations
@@ -39,7 +41,9 @@ func NewIdentityCommand() *IdentityCommand {
 
 func (c *IdentityCommand) Run(args []string) error {
 	if len(args) == 0 {
-		return fmt.Errorf("サブコマンドが必要です")
+		logger.LogInfo("No subcommand specified")
+		fmt.Fprintln(os.Stderr, c.Help())
+		return nil
 	}
 
 	subCmd := args[0]
@@ -58,7 +62,7 @@ func (c *IdentityCommand) Run(args []string) error {
 		}
 		return c.runSameMerge()
 	case "help":
-		fmt.Println(c.Help())
+		fmt.Fprintln(os.Stderr, c.Help())
 		return nil
 	default:
 		return fmt.Errorf("不明なサブコマンド: %s", subCmd)
@@ -167,8 +171,12 @@ func (a *identityClientAdapter) GetIdentities(ctx context.Context, cursor string
 	return identities, nextCursor, err
 }
 
-func (a *identityClientAdapter) MergeIdentities(ctx context.Context, fromPeopleID, toPeopleID int) error {
-	return a.client.MergeIdentities(ctx, fromPeopleID, toPeopleID)
+func (a *identityClientAdapter) MergeIdentities(ctx context.Context, fromPeopleID, toPeopleID int) (admina.MergeIdentity, error) {
+	result, err := a.client.MergeIdentities(ctx, fromPeopleID, toPeopleID)
+	if err != nil {
+		return admina.MergeIdentity{}, err
+	}
+	return result, nil
 }
 
 func (c *IdentityCommand) newIdentityClient() identity.Client {

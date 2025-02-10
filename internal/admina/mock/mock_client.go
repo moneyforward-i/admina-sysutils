@@ -8,9 +8,10 @@ import (
 
 // MockClient は Client インターフェースを実装するモックです
 type Client struct {
-	Identities []admina.Identity
-	Cursor     string
-	Error      error // エラーケースのテスト用
+	Identities   []admina.Identity
+	Cursor       string
+	Error        error                  // エラーケースのテスト用
+	MergeResults []admina.MergeIdentity // マージ結果を保持するフィールド
 }
 
 func (m *Client) GetIdentities(ctx context.Context, cursor string) ([]admina.Identity, string, error) {
@@ -20,9 +21,15 @@ func (m *Client) GetIdentities(ctx context.Context, cursor string) ([]admina.Ide
 	return m.Identities, m.Cursor, nil
 }
 
-func (m *Client) MergeIdentities(ctx context.Context, fromPeopleID, toPeopleID int) error {
-	if m.Error != nil {
-		return m.Error
+func (c *Client) MergeIdentities(ctx context.Context, fromPeopleID, toPeopleID int) (admina.MergeIdentity, error) {
+	if c.Error != nil {
+		return admina.MergeIdentity{}, c.Error
 	}
-	return nil
+
+	result := admina.MergeIdentity{
+		FromPeopleID: fromPeopleID,
+		ToPeopleID:   toPeopleID,
+	}
+	c.MergeResults = append(c.MergeResults, result)
+	return result, nil
 }

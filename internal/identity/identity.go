@@ -2,17 +2,17 @@ package identity
 
 import (
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/moneyforward-i/admina-sysutils/internal/admina"
+	"github.com/moneyforward-i/admina-sysutils/internal/logger"
 	"golang.org/x/net/context"
 )
 
 // Client interface defines the methods required for identity operations
 type Client interface {
 	GetIdentities(ctx context.Context, cursor string) ([]admina.Identity, string, error)
-	MergeIdentities(ctx context.Context, fromPeopleID, toPeopleID int) error
+	MergeIdentities(ctx context.Context, fromPeopleID, toPeopleID int) (admina.MergeIdentity, error)
 }
 
 // Common utility functions
@@ -24,15 +24,16 @@ func FetchAllIdentities(client Client) ([]admina.Identity, error) {
 
 	for {
 		step++
-		fmt.Fprintf(os.Stderr, "\rProcessing step: %d (Total: %d)", step, totalProcessed)
+		logger.PrintErr("\rProcessing step: %d (Total: %d)", step, totalProcessed)
 
 		identities, cursor, err := client.GetIdentities(context.Background(), nextCursor)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "\n")
+			logger.PrintErr("\n")
 			return nil, fmt.Errorf("failed to fetch identities: %v", err)
 		}
 
 		allIdentities = append(allIdentities, identities...)
+
 		totalProcessed += len(identities)
 
 		if cursor == "" {
@@ -41,8 +42,8 @@ func FetchAllIdentities(client Client) ([]admina.Identity, error) {
 		nextCursor = cursor
 	}
 
-	fmt.Fprintf(os.Stderr, "\nProcessing complete. Total steps: %d\n", step)
-	fmt.Fprintf(os.Stderr, "Number of Identities retrieved: %d\n", totalProcessed)
+	logger.PrintErr("\nProcessing complete. Total steps: %d\n", step)
+	logger.PrintErr("Number of Identities retrieved: %d\n", totalProcessed)
 
 	return allIdentities, nil
 }
@@ -60,17 +61,16 @@ func MaskEmail(email string) string {
 		return email
 	}
 
-	parts := strings.Split(email, "@")
-	if len(parts) != 2 {
-		return "invalid-email"
+	if !strings.Contains(email, "@") {
+		return email
 	}
 
-	localPart := parts[0]
-	if len(localPart) <= 3 {
-		return localPart + "@" + parts[1] // 3文字以下の場合はマスクしない
+	localPart, domain := ExtractLocalPart(email), ExtractDomain(email)
+	if len(localPart) <= 2 {
+		return email
 	}
 
-	return localPart[:3] + strings.Repeat("*", len(localPart)-3) + "@" + parts[1]
+	return localPart[:3] + strings.Repeat("*", len(localPart)-3) + "@" + domain
 }
 
 func ExtractDomain(email string) string {

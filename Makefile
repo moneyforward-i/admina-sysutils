@@ -11,7 +11,7 @@ GOBIN := $(shell go env GOBIN)
 GOPATH := $(shell go env GOPATH)
 PATH := $(GOBIN):$(GOPATH)/bin:$(PATH)
 
-.PHONY: all build test clean lint vet fmt build-all deps test-ci build-cd dev
+.PHONY: all build test clean lint vet fmt build-all deps test-ci build-cd dev test-e2e test-e2e-identity
 
 ## シチュエーションごとのコマンド
 # CI用のテストターゲット
@@ -22,6 +22,22 @@ build-cd: clean deps build-all
 
 # ローカル開発用のターゲット
 dev: all
+
+## E2Eテスト関連のコマンド
+# test-e2e: すべてのE2Eテストを実行します
+test-e2e: test-e2e-identity
+
+# test-e2e-identity: Identity関連のE2Eテストを実行します
+test-e2e-identity:
+	@if [ ! -f .env ]; then \
+		echo "Error: .env file not found. Please create .env file with required environment variables."; \
+		exit 1; \
+	fi
+	mkdir -p $(COVERAGE_DIR) $(REPORT_DIR)
+	set -a && source .env && set +a && E2E_TEST=1 go test -v -coverprofile=$(COVERAGE_DIR)/e2e_identity_coverage.out ./internal/identity -run TestE2E_Identity | tee >(go-junit-report > $(REPORT_DIR)/e2e_identity_report.xml)
+	npx xunit-viewer --results=$(REPORT_DIR)/e2e_identity_report.xml --output=$(REPORT_DIR)/e2e_identity_report.html
+	go tool cover -html=$(COVERAGE_DIR)/e2e_identity_coverage.out -o $(COVERAGE_DIR)/e2e_identity_coverage.html
+	go tool cover -func=$(COVERAGE_DIR)/e2e_identity_coverage.out
 
 ## 基本コマンド
 # all: すべてのビルド、テスト、静的解析を実行します。
