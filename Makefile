@@ -66,7 +66,7 @@ clean:
 
 # lint: コードの静的解析を行います。
 lint:
-	go run github.com/golangci/golangci-lint/cmd/golangci-lint run
+	go run github.com/golangci/golangci-lint/cmd/golangci-lint@latest run
 
 # vet: コードの潜在的な問題を検出します。
 vet:
