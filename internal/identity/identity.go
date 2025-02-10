@@ -12,7 +12,7 @@ import (
 // Client interface defines the methods required for identity operations
 type Client interface {
 	GetIdentities(ctx context.Context, cursor string) ([]admina.Identity, string, error)
-	MergeIdentities(ctx context.Context, fromPeopleID, toPeopleID int) error
+	MergeIdentities(ctx context.Context, fromPeopleID, toPeopleID int) (admina.MergeIdentity, error)
 }
 
 // Common utility functions
@@ -61,17 +61,16 @@ func MaskEmail(email string) string {
 		return email
 	}
 
-	parts := strings.Split(email, "@")
-	if len(parts) != 2 {
-		return "invalid-email"
+	if !strings.Contains(email, "@") {
+		return email
 	}
 
-	localPart := parts[0]
-	if len(localPart) <= 3 {
-		return localPart + "@" + parts[1] // 3文字以下の場合はマスクしない
+	localPart, domain := ExtractLocalPart(email), ExtractDomain(email)
+	if len(localPart) <= 2 {
+		return email
 	}
 
-	return localPart[:3] + strings.Repeat("*", len(localPart)-3) + "@" + parts[1]
+	return localPart[:3] + strings.Repeat("*", len(localPart)-3) + "@" + domain
 }
 
 func ExtractDomain(email string) string {

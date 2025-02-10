@@ -1,0 +1,34 @@
+再度、テストデータのルールを説明します。
+
+利用できるmanagementTypeは managed, external,unregistered です。
+マージテストでは以下のマージパターンを網羅してください。またこれ以外のパターンはFailすることを確認してください。
+ただしテスト順序については気をつけてください。E2Eなので実際にデータベースに変更が入ります。マージできないパターンをテストしたあとマージをテストしてください。また１度使ったマージデータは再利用しないでください。（できないです）
+
+managementType
+- managed       -> managed
+- external      -> managed, external
+- system        -> managed, external, system
+- unregistered  -> managed, external, system
+- unknown       -> managed, external, system, unregistered
+
+employeeTypeはmanagementType事に使える値が決まっています。デフォルトでは以下をテストで使ってください。
+- managed       -> full_time_employee
+- external      -> collaborator
+- system        -> group_address
+- unregistered  -> unregistered
+- unknown       -> unknown
+
+そしてAPIでは先程指定したSchema以外には値は使えません。( 例：ManagementTypeなど）しかしCSVには書いておいてください。
+
+以下のドメインをテスト用に使ってください、。
+@parent-domain.com -> Managedユーザー用, Unregisterdユーザー用
+@child1-domain.com -> Managedユーザー用
+@child2-ext-domain.com ->  Externalユーザー用
+
+EmployeesIDは重複しないようにしてください。ユニーク制約があります。
+Identity IDはNullとしてください。(これらはCreate時に自動で生成されます。)
+CSVにコメント文は入れてはいけません
+
+samemergeコマンドのテストの為には、
+* LocalHost部分が同じで違うドメインを使う必要があります。
+* managementTypeは原則自動で定義されます。

@@ -1,0 +1,23 @@
+id,firstName,lastName,displayName,primaryEmail,secondaryEmails,employeeId,managementType,employeeStatus,employeeType,memo
+# パターン1: external -> external (マージされない)
+,Jiro,Tanaka1,Jiro Tanaka1,tanaka.jiro.e2e.1@child2-ext-domain.com,,3001,external,active,collaborator,test_case_1
+,Jiro,Tanaka2,Jiro Tanaka2,tanaka.jiro.e2e.2@child2-ext-domain.com,,3002,external,active,collaborator,test_case_1
+# パターン2: external -> managed (成功)
+,Hanako,Suzuki1,Hanako Suzuki1,suzuki.hanako.e2e@child2-ext-domain.com,,2001,external,active,collaborator,test_case_2
+,Hanako,Suzuki2,Hanako Suzuki2,suzuki.hanako.e2e@parent-domain.com,,2002,managed,active,full_time_employee,test_case_2
+# パターン3: managed -> managed (成功)
+,Taro,Yamada1,Taro Yamada1,yamada.taro.e2e@child1-domain.com,,1001,managed,active,full_time_employee,test_case_3
+,Taro,Yamada2,Taro Yamada2,yamada.taro.e2e@parent-domain.com,,1002,managed,active,full_time_employee,test_case_3
+# パターン4: managed -> managed (成功)
+,Ichiro,Sato1,Ichiro Sato1,sato.ichiro@child1-domain.com,,4001,managed,active,full_time_employee,test_case_3_2
+,Ichiro,Sato2,Ichiro Sato2,sato.ichiro@parent-domain.com,,4002,managed,active,full_time_employee,test_case_3_2
+# パターン5: external -> external (成功)
+,Saburo,Kato1,Saburo Kato1,kato.saburo.1@child2-ext-domain.com,,5001,external,active,collaborator,test_case_1_2
+,Saburo,Kato2,Saburo Kato2,kato.saburo.2@child2-ext-domain.com,,5002,external,active,collaborator,test_case_1_2
+# パターン6: managed -> external (失敗)
+,Rokuro,Mori1,Rokuro Mori1,mori.rokuro@child1-domain.com,,6001,managed,active,full_time_employee,test_case_4
+,Rokuro,Mori2,Rokuro Mori2,mori.rokuro@child2-ext-domain.com,,6002,external,active,collaborator,test_case_4
+# 単独レコード（マージなし）
+,Matsuo,Basho1,Matsuo Basho1,basho.matsuo@parent-domain.com,,7001,managed,active,full_time_employee,no_merge
+,Yosano,Akiko1,Yosano Akiko1,akiko.yosano@child2-ext-domain.com,,7002,external,active,collaborator,no_merge
+,Takahama,Kyoshi1,Takahama Kyoshi1,kyoshi.takahama@parent-domain.com,,7003,managed,active,full_time_employee,no_merge

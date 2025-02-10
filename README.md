@@ -44,7 +44,7 @@ Admina SysUtils は以下のコマンドをサポートしています：
 |          |              | --parent-domain << domain >>           | 親ドメインを指定                         | --parent-domain example.com                       |
 |          |              | --child-domains << domains >>          | 子ドメインをカンマ区切りで指定           | --child-domains sub1.example.com,sub2.example.com |
 |          |              | --dry-run                              | 実際のマージを実行せずに確認のみ         | --dry-run                                         |
-|          |              | --y                                    | 確認プロンプトをスキップ                 | -y                                                |
+|          |              | --y                                    | 確認プロンプトをスキップ                 | --y                                               |
 |          |              | --nomask                               | メールアドレスをマスクしない             | --nomask                                          |
 | identity | help         | なし                                   | アイデンティティコマンドのヘルプを表示   | identity help                                     |
 

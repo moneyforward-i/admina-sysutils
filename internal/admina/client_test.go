@@ -40,7 +40,13 @@ func setupTestServer() (*httptest.Server, *Client) {
 			}
 			json.NewEncoder(w).Encode(response)
 		case "/api/v1/organizations/test-org/identity/merge":
-			w.WriteHeader(http.StatusOK)
+			response := []MergeIdentity{
+				{
+					FromPeopleID: 1,
+					ToPeopleID:   2,
+				},
+			}
+			json.NewEncoder(w).Encode(response)
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}
@@ -125,9 +131,14 @@ func TestMergeIdentities(t *testing.T) {
 	defer server.Close()
 
 	ctx := context.Background()
-	err := client.MergeIdentities(ctx, 1, 2)
+	result, err := client.MergeIdentities(ctx, 1, 2)
 	if err != nil {
 		t.Fatalf("MergeIdentities() error = %v", err)
+	}
+
+	// 戻り値の検証
+	if result.FromPeopleID != 1 || result.ToPeopleID != 2 {
+		t.Errorf("MergeIdentities() got = %v, want FromPeopleID=1, ToPeopleID=2", result)
 	}
 }
 

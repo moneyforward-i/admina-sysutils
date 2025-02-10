@@ -151,14 +151,15 @@ type APIResponse[T any] struct {
 
 // Identity関連の構造体と関数
 type Identity struct {
-	ID             string `json:"id"`
-	OrganizationID int    `json:"organizationId"`
-	PeopleID       int    `json:"peopleId"`
-	DisplayName    string `json:"displayName"`
-	ManagementType string `json:"managementType"`
-	EmployeeType   string `json:"employeeType"`
-	EmployeeStatus string `json:"employeeStatus"`
-	Email          string `json:"primaryEmail"`
+	ID              string   `json:"id"`
+	OrganizationID  int      `json:"organizationId"`
+	PeopleID        int      `json:"peopleId"`
+	DisplayName     string   `json:"displayName"`
+	ManagementType  string   `json:"managementType"`
+	EmployeeType    string   `json:"employeeType"`
+	EmployeeStatus  string   `json:"employeeStatus"`
+	Email           string   `json:"primaryEmail"`
+	SecondaryEmails []string `json:"secondaryEmails"`
 }
 
 func (c *Client) GetIdentities(ctx context.Context, cursor string) ([]Identity, string, error) {
@@ -181,8 +182,18 @@ func (c *Client) GetIdentities(ctx context.Context, cursor string) ([]Identity, 
 		return nil, "", err
 	}
 
+	// レスポンスボディをバッファに読み込む
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	// RAWデータをログ出力
+	c.debugLog("Raw Response Body: %s", string(bodyBytes))
+
+	// 新しいReaderを作成してデコード
 	var response APIResponse[[]Identity]
-	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+	if err := json.NewDecoder(bytes.NewReader(bodyBytes)).Decode(&response); err != nil {
 		return nil, "", fmt.Errorf("failed to decode response: %w", err)
 	}
 
@@ -206,7 +217,7 @@ type MergeIdentityRequest struct {
 	Merges []MergeIdentity `json:"merges"`
 }
 
-func (c *Client) MergeIdentities(ctx context.Context, fromPeopleID, toPeopleID int) error {
+func (c *Client) MergeIdentities(ctx context.Context, fromPeopleID, toPeopleID int) (MergeIdentity, error) {
 	payload := MergeIdentityRequest{
 		Merges: []MergeIdentity{
 			{
@@ -218,11 +229,35 @@ func (c *Client) MergeIdentities(ctx context.Context, fromPeopleID, toPeopleID i
 
 	resp, err := c.doRequest(ctx, http.MethodPost, "/identity/merge", nil, payload)
 	if err != nil {
-		return fmt.Errorf("failed to merge identities: %w", err)
+		return MergeIdentity{}, fmt.Errorf("failed to merge identities: %w", err)
 	}
 	defer resp.Body.Close()
 
-	return c.handleResponse(resp)
+	if err := c.handleResponse(resp); err != nil {
+		return MergeIdentity{}, err
+	}
+
+	var response []MergeIdentity
+	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+		if err == io.EOF {
+			c.debugLog("Received EOF response, assuming merge success")
+			return MergeIdentity{
+				FromPeopleID: fromPeopleID,
+				ToPeopleID:   toPeopleID,
+			}, nil
+		}
+		return MergeIdentity{}, fmt.Errorf("failed to decode merge result: %w", err)
+	}
+
+	if len(response) == 0 {
+		c.debugLog("Received empty response, assuming merge success")
+		return MergeIdentity{
+			FromPeopleID: fromPeopleID,
+			ToPeopleID:   toPeopleID,
+		}, nil
+	}
+
+	return response[0], nil
 }
 
 // Organization関連の構造体と関数
@@ -265,5 +300,50 @@ func (c *Client) Validate() error {
 	if c.apiKey == "" {
 		return fmt.Errorf("ADMINA_API_KEY is not set")
 	}
+	return nil
+}
+
+// CreateIdentityRequest represents the request body for creating an identity
+type CreateIdentityRequest struct {
+	PrimaryEmail   string `json:"primaryEmail"`
+	FirstName      string `json:"firstName"`
+	LastName       string `json:"lastName"`
+	DisplayName    string `json:"displayName"`
+	EmployeeType   string `json:"employeeType"`
+	EmployeeStatus string `json:"employeeStatus"`
+}
+
+// CreateIdentity creates a new identity
+func (c *Client) CreateIdentity(ctx context.Context, req *CreateIdentityRequest) (*Identity, error) {
+	resp, err := c.doRequest(ctx, http.MethodPost, "/identity", nil, req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create identity: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if err := c.handleResponse(resp); err != nil {
+		return nil, err
+	}
+
+	var identity Identity
+	if err := json.NewDecoder(resp.Body).Decode(&identity); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	return &identity, nil
+}
+
+// DeleteIdentity deletes an identity by ID
+func (c *Client) DeleteIdentity(ctx context.Context, identityID string) error {
+	resp, err := c.doRequest(ctx, http.MethodDelete, fmt.Sprintf("/identity/%s", identityID), nil, nil)
+	if err != nil {
+		return fmt.Errorf("failed to delete identity: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if err := c.handleResponse(resp); err != nil {
+		return err
+	}
+
 	return nil
 }

@@ -168,8 +168,12 @@ func (a *identityClientAdapter) GetIdentities(ctx context.Context, cursor string
 	return identities, nextCursor, err
 }
 
-func (a *identityClientAdapter) MergeIdentities(ctx context.Context, fromPeopleID, toPeopleID int) error {
-	return a.client.MergeIdentities(ctx, fromPeopleID, toPeopleID)
+func (a *identityClientAdapter) MergeIdentities(ctx context.Context, fromPeopleID, toPeopleID int) (admina.MergeIdentity, error) {
+	result, err := a.client.MergeIdentities(ctx, fromPeopleID, toPeopleID)
+	if err != nil {
+		return admina.MergeIdentity{}, err
+	}
+	return result, nil
 }
 
 func (c *IdentityCommand) newIdentityClient() identity.Client {

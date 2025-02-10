@@ -66,47 +66,47 @@ func MergeIdentities(client Client, config *MergeConfig) error {
 	errorCount := 0
 
 	// マージ処理の実行
-	for _, candidate := range result.Candidates {
+	for i, candidate := range result.Candidates {
 		// マージ可否チェック
-		if !isMergeAllowed(candidate.Parent, candidate.Child) { // マージが許可されているか確認
-			reason := fmt.Sprintf("Cannot merge from %s to %s", candidate.Child.ManagementType, candidate.Parent.ManagementType)
+		if !IsMergeAllowed(candidate.Parent, candidate.Child) {
+			reason := fmt.Sprintf("cannot merge from %s to %s", candidate.Child.ManagementType, candidate.Parent.ManagementType)
 			logger.LogInfo("%s (%s -> %s)", reason, MaskEmail(candidate.Child.Email), MaskEmail(candidate.Parent.Email))
-			candidate.Status = "Skipped"
-			candidate.Reason = reason
+			result.Candidates[i].Status = "Skip" // インデックスを使用して直接更新
+			result.Candidates[i].Reason = reason
 			skippedCount++
 			continue
 		}
 
-		if config.DryRun { // ドライランモードかどうか確認
+		if config.DryRun {
 			logger.LogInfo("Dry-run: Would merge %s -> %s", MaskEmail(candidate.Child.Email), MaskEmail(candidate.Parent.Email))
-			candidate.Status = "Skipped"
+			result.Candidates[i].Status = "Skip"
 			skippedCount++
 			continue
 		}
 
-		if !config.AutoApprove { // 自動承認が有効かどうか確認
+		if !config.AutoApprove {
 			fmt.Printf("Merge %s -> %s? (y/n): ", MaskEmail(candidate.Child.Email), MaskEmail(candidate.Parent.Email))
 			reader := bufio.NewReader(os.Stdin)
 			response, _ := reader.ReadString('\n')
 			response = strings.TrimSpace(response)
-			if response != "y" { // ユーザーの入力が "y" でない場合
+			if response != "y" {
 				logger.LogInfo("Skipped merging %s -> %s", MaskEmail(candidate.Child.Email), MaskEmail(candidate.Parent.Email))
-				candidate.Status = "Skipped"
+				result.Candidates[i].Status = "Skip"
 				skippedCount++
 				continue
 			}
 		}
 
-		if err := client.MergeIdentities(ctx, candidate.Child.PeopleID, candidate.Parent.PeopleID); err != nil { // マージ処理の実行とエラーチェック
-			reason := fmt.Sprintf("Failed to merge %s -> %s: %v", MaskEmail(candidate.Child.Email), MaskEmail(candidate.Parent.Email), err)
-			logger.LogInfo("%s", reason)
-			candidate.Status = "Failed"
-			candidate.Reason = reason
+		clientMergeResult, err := client.MergeIdentities(ctx, candidate.Child.PeopleID, candidate.Parent.PeopleID)
+		if err != nil {
+			logger.LogInfo("Failed to merge %s -> %s: %v", MaskEmail(candidate.Child.Email), MaskEmail(candidate.Parent.Email), err)
+			result.Candidates[i].Status = "Error"
+			result.Candidates[i].Reason = fmt.Sprintf("Failed to merge: %v", err)
 			errorCount++
 			continue
 		}
-		logger.LogInfo("Successfully merged %s -> %s", MaskEmail(candidate.Child.Email), MaskEmail(candidate.Parent.Email))
-		candidate.Status = "Merged"
+		logger.LogInfo("Successfully merged %d -> %d", clientMergeResult.FromPeopleID, clientMergeResult.ToPeopleID)
+		result.Candidates[i].Status = "Success"
 		mergedCount++
 	}
 
@@ -203,10 +203,8 @@ func (f *MarkdownFormatter) Format(result *MergeResult, mergedCount, skippedCoun
 	output.WriteString("|-----|--------|---------|--------|\n")
 
 	for i, candidate := range result.Candidates {
-		parentEmail := candidate.Parent.Email
-		childEmail := candidate.Child.Email
-		parentEmail = MaskEmail(parentEmail)
-		childEmail = MaskEmail(childEmail)
+		parentEmail := MaskEmail(candidate.Parent.Email)
+		childEmail := MaskEmail(candidate.Child.Email)
 		output.WriteString(fmt.Sprintf("| %d | %s | %s | %s |\n",
 			i+1, candidate.Status, parentEmail, childEmail))
 	}
@@ -259,10 +257,8 @@ func (f *CSVFormatter) Format(result *MergeResult, mergedCount, skippedCount int
 	// マッピングファイルの作成
 	mappingRows := make([][]string, 0, len(result.Candidates))
 	for _, candidate := range result.Candidates {
-		parentEmail := candidate.Parent.Email
-		childEmail := candidate.Child.Email
-		parentEmail = MaskEmail(parentEmail)
-		childEmail = MaskEmail(childEmail)
+		parentEmail := MaskEmail(candidate.Parent.Email)
+		childEmail := MaskEmail(candidate.Child.Email)
 		mappingRows = append(mappingRows, []string{
 			parentEmail,
 			candidate.Parent.ID,
@@ -281,10 +277,7 @@ func (f *CSVFormatter) Format(result *MergeResult, mergedCount, skippedCount int
 	// アンマップファイルの作成
 	unmappedRows := make([][]string, 0, len(result.Unmapped))
 	for _, unmapped := range result.Unmapped {
-		childEmail := unmapped.Email
-
-		childEmail = MaskEmail(childEmail)
-
+		childEmail := MaskEmail(unmapped.Email)
 		unmappedRows = append(unmappedRows, []string{
 			childEmail,
 			unmapped.ID,
@@ -392,13 +385,13 @@ func contains(slice []string, item string) bool {
 }
 
 // IDのタイプを確認する関数
-func isMergeAllowed(parent admina.Identity, child admina.Identity) bool {
+func IsMergeAllowed(parent admina.Identity, child admina.Identity) bool {
 	allowedMerges := map[string][]string{
-		"managed":   {"managed"},
-		"external":  {"managed", "external"},
-		"system":    {"external", "managed", "system"},
-		"unknown":   {"managed", "external", "system", "unmanaged"},
-		"unmanaged": {"managed", "external", "system"},
+		"managed":      {"managed"},
+		"external":     {"managed", "external"},
+		"system":       {"managed", "external", "system"},
+		"unregistered": {"managed", "external", "system"},
+		"unknown":      {"managed", "external", "system", "unregistered"},
 	}
 
 	childType := child.ManagementType
