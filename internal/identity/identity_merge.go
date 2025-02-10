@@ -3,10 +3,8 @@ package identity
 import (
 	"bufio"
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/moneyforward-i/admina-sysutils/internal/admina"
@@ -51,98 +49,17 @@ func MergeIdentities(client Client, config *MergeConfig) error {
 	logger.LogInfo("Starting identity merge process")
 	ctx := context.Background()
 
-	allIdentities, err := FetchAllIdentities(client)
-	if err != nil {
-		return fmt.Errorf("failed to fetch identities: %v", err)
-	}
-
-	result, err := findMergeCandidates(allIdentities, config)
+	result, err := prepareMergeResult(client, config)
 	if err != nil {
 		return err
 	}
 
-	mergedCount := 0
-	skippedCount := 0
-	errorCount := 0
+	mergedCount, skippedCount, errorCount := processMergeCandidates(ctx, client, config, result)
 
-	// マージ処理の実行
-	for i, candidate := range result.Candidates {
-		// マージ可否チェック
-		if !IsMergeAllowed(candidate.Parent, candidate.Child) {
-			reason := fmt.Sprintf("cannot merge from %s to %s", candidate.Child.ManagementType, candidate.Parent.ManagementType)
-			logger.LogInfo("%s (%s -> %s)", reason, MaskEmail(candidate.Child.Email), MaskEmail(candidate.Parent.Email))
-			result.Candidates[i].Status = "Skip" // インデックスを使用して直接更新
-			result.Candidates[i].Reason = reason
-			skippedCount++
-			continue
-		}
-
-		if config.DryRun {
-			logger.LogInfo("Dry-run: Would merge %s -> %s", MaskEmail(candidate.Child.Email), MaskEmail(candidate.Parent.Email))
-			result.Candidates[i].Status = "Skip"
-			skippedCount++
-			continue
-		}
-
-		if !config.AutoApprove {
-			fmt.Printf("Merge %s -> %s? (y/n): ", MaskEmail(candidate.Child.Email), MaskEmail(candidate.Parent.Email))
-			reader := bufio.NewReader(os.Stdin)
-			response, _ := reader.ReadString('\n')
-			response = strings.TrimSpace(response)
-			if response != "y" {
-				logger.LogInfo("Skipped merging %s -> %s", MaskEmail(candidate.Child.Email), MaskEmail(candidate.Parent.Email))
-				result.Candidates[i].Status = "Skip"
-				skippedCount++
-				continue
-			}
-		}
-
-		clientMergeResult, err := client.MergeIdentities(ctx, candidate.Child.PeopleID, candidate.Parent.PeopleID)
-		if err != nil {
-			logger.LogInfo("Failed to merge %s -> %s: %v", MaskEmail(candidate.Child.Email), MaskEmail(candidate.Parent.Email), err)
-			result.Candidates[i].Status = "Error"
-			result.Candidates[i].Reason = fmt.Sprintf("Failed to merge: %v", err)
-			errorCount++
-			continue
-		}
-		logger.LogInfo("Successfully merged %d -> %d", clientMergeResult.FromPeopleID, clientMergeResult.ToPeopleID)
-		result.Candidates[i].Status = "Success"
-		mergedCount++
+	if err := outputResults(result, config, mergedCount, skippedCount); err != nil {
+		return err
 	}
 
-	// フォーマッタの選択
-	var formatter Formatter
-	switch config.OutputFormat {
-	case "json":
-		formatter = &JSONFormatter{}
-	case "markdown":
-		formatter = &MarkdownFormatter{}
-	case "pretty":
-		formatter = &PrettyFormatter{}
-	case "csv":
-		formatter = &CSVFormatter{OutputDir: "out"}
-	default:
-		return fmt.Errorf("unknown output format: %s", config.OutputFormat)
-	}
-
-	// 結果のフォーマット
-	output, err := formatter.Format(result, mergedCount, skippedCount)
-	if err != nil {
-		return fmt.Errorf("failed to format output: %v", err)
-	}
-
-	// 結果の出力（標準出力を使用）
-	logger.LogInfo("Outputting merge results")
-	logger.Print(output) // 実行結果のみ標準出力
-
-	// CSVファイルの出力
-	logger.LogInfo("Writing CSV files")
-	csvFormatter := &CSVFormatter{OutputDir: "out"}
-	if _, err := csvFormatter.Format(result, mergedCount, skippedCount); err != nil {
-		return fmt.Errorf("failed to write CSV files: %v", err)
-	}
-
-	// エラーカウントがある場合は警告として返す
 	if errorCount > 0 {
 		return fmt.Errorf("completed with %d errors, %d merged, %d skipped", errorCount, mergedCount, skippedCount)
 	}
@@ -150,147 +67,116 @@ func MergeIdentities(client Client, config *MergeConfig) error {
 	return nil
 }
 
-func printMergeAnalysis(result *MergeResult) {
-	logger.LogInfo("Printing merge analysis summary")
-	logger.PrintErr("=== Merge Analysis Summary ===\n")
-	logger.PrintErr("Total merge candidates: %d\n", len(result.Candidates))
-	logger.PrintErr("Total unmapped identities: %d\n", len(result.Unmapped))
-	logger.PrintErr("=== Analysis Complete ===\n")
-}
-
-// JSONFormatter の実装
-type JSONFormatter struct{}
-
-func (f *JSONFormatter) Format(result *MergeResult, mergedCount, skippedCount int) (string, error) {
-	var output strings.Builder
-
-	for i, candidate := range result.Candidates {
-		data := struct {
-			Index  int             `json:"index"`
-			Status string          `json:"status"`
-			Parent admina.Identity `json:"parent"`
-			Child  admina.Identity `json:"child"`
-		}{
-			Index:  i + 1,
-			Status: candidate.Status,
-			Parent: candidate.Parent,
-			Child:  candidate.Child,
-		}
-
-		data.Parent.Email = MaskEmail(data.Parent.Email)
-		data.Child.Email = MaskEmail(data.Child.Email)
-
-		candidateJSON, err := json.Marshal(data)
-		if err != nil {
-			return "", fmt.Errorf("failed to marshal candidate: %v", err)
-		}
-		output.WriteString(string(candidateJSON))
-		output.WriteString("\n")
-	}
-
-	return output.String(), nil
-}
-
-// MarkdownFormatter の実装
-type MarkdownFormatter struct{}
-
-func (f *MarkdownFormatter) Format(result *MergeResult, mergedCount, skippedCount int) (string, error) {
-	var output strings.Builder
-
-	output.WriteString("# Merge Result\n\n")
-	output.WriteString("## Candidates\n\n")
-	output.WriteString("| No. | Status | Parent | Child |\n")
-	output.WriteString("|-----|--------|---------|--------|\n")
-
-	for i, candidate := range result.Candidates {
-		parentEmail := MaskEmail(candidate.Parent.Email)
-		childEmail := MaskEmail(candidate.Child.Email)
-		output.WriteString(fmt.Sprintf("| %d | %s | %s | %s |\n",
-			i+1, candidate.Status, parentEmail, childEmail))
-	}
-
-	return output.String(), nil
-}
-
-// PrettyFormatter の実装
-type PrettyFormatter struct{}
-
-func (f *PrettyFormatter) Format(result *MergeResult, mergedCount, skippedCount int) (string, error) {
-	var output strings.Builder
-
-	output.WriteString("=== Merge Result ===\n\n")
-	output.WriteString("Candidates:\n")
-
-	for i, candidate := range result.Candidates {
-		parentEmail := MaskEmail(candidate.Parent.Email)
-		childEmail := MaskEmail(candidate.Child.Email)
-		output.WriteString(fmt.Sprintf("%d. %s -> %s\n",
-			i+1, childEmail, parentEmail))
-	}
-
-	return output.String(), nil
-}
-
-// CSVFormatter の実装
-type CSVFormatter struct {
-	OutputDir string
-}
-
-func (f *CSVFormatter) Format(result *MergeResult, mergedCount, skippedCount int) (string, error) {
-	// 環境変数が設定されているか確認
-	projectRoot := os.Getenv("ADMINA_CLI_ROOT")
-	if projectRoot == "" {
-		// 環境変数が設定されていない場合、プロジェクトルートのディレクトリを取得
-		var err error
-		projectRoot, err = os.Getwd()
-		if err != nil {
-			return "", fmt.Errorf("failed to get working directory: %v", err)
-		}
-	}
-	f.OutputDir = filepath.Join(projectRoot, "out", "data")
-
-	csvWriter, err := NewCSVWriter(f.OutputDir)
+func prepareMergeResult(client Client, config *MergeConfig) (*MergeResult, error) {
+	allIdentities, err := FetchAllIdentities(client)
 	if err != nil {
-		return "", err
+		return nil, fmt.Errorf("failed to fetch identities: %v", err)
 	}
 
-	// マッピングファイルの作成
-	mappingRows := make([][]string, 0, len(result.Candidates))
-	for _, candidate := range result.Candidates {
-		parentEmail := MaskEmail(candidate.Parent.Email)
-		childEmail := MaskEmail(candidate.Child.Email)
-		mappingRows = append(mappingRows, []string{
-			parentEmail,
-			candidate.Parent.ID,
-			childEmail,
-			candidate.Child.ID,
-			candidate.Status,
-		})
+	result, err := findMergeCandidates(allIdentities, config)
+	if err != nil {
+		return nil, err
 	}
 
-	if err := csvWriter.WriteCSV("identity_mappings.csv",
-		[]string{"ParentEmail", "ParentIdentityID", "ChildEmail", "ChildIdentityID", "Status"},
-		mappingRows); err != nil {
-		return "", err
+	return result, nil
+}
+
+func processMergeCandidates(ctx context.Context, client Client, config *MergeConfig, result *MergeResult) (mergedCount, skippedCount, errorCount int) {
+	for i := range result.Candidates {
+		candidate := &result.Candidates[i]
+		status, err := processSingleCandidate(ctx, client, config, candidate)
+		switch status {
+		case "Success":
+			mergedCount++
+		case "Skip":
+			skippedCount++
+		case "Error":
+			errorCount++
+			candidate.Reason = fmt.Sprintf("Failed to merge: %v", err)
+		}
+	}
+	return
+}
+
+func processSingleCandidate(ctx context.Context, client Client, config *MergeConfig, candidate *MergeCandidate) (string, error) {
+	if !IsMergeAllowed(candidate.Parent, candidate.Child) {
+		reason := fmt.Sprintf("cannot merge from %s to %s", candidate.Child.ManagementType, candidate.Parent.ManagementType)
+		logger.LogInfo("%s (%s -> %s)", reason, MaskEmail(candidate.Child.Email), MaskEmail(candidate.Parent.Email))
+		candidate.Status = "Skip"
+		candidate.Reason = reason
+		return "Skip", nil
 	}
 
-	// アンマップファイルの作成
-	unmappedRows := make([][]string, 0, len(result.Unmapped))
-	for _, unmapped := range result.Unmapped {
-		childEmail := MaskEmail(unmapped.Email)
-		unmappedRows = append(unmappedRows, []string{
-			childEmail,
-			unmapped.ID,
-		})
+	if config.DryRun {
+		logger.LogInfo("Dry-run: Would merge %s -> %s", MaskEmail(candidate.Child.Email), MaskEmail(candidate.Parent.Email))
+		candidate.Status = "Skip"
+		return "Skip", nil
 	}
 
-	if err := csvWriter.WriteCSV("unmapped_child_identities.csv",
-		[]string{"ChildEmail", "ChildIdentityID"},
-		unmappedRows); err != nil {
-		return "", err
+	if !config.AutoApprove {
+		if !confirmMerge(candidate) {
+			logger.LogInfo("Skipped merging %s -> %s", MaskEmail(candidate.Child.Email), MaskEmail(candidate.Parent.Email))
+			candidate.Status = "Skip"
+			return "Skip", nil
+		}
 	}
 
-	return fmt.Sprintf("CSV files written to %s\n", f.OutputDir), nil
+	clientMergeResult, err := client.MergeIdentities(ctx, candidate.Child.PeopleID, candidate.Parent.PeopleID)
+	if err != nil {
+		logger.LogInfo("Failed to merge %s -> %s: %v", MaskEmail(candidate.Child.Email), MaskEmail(candidate.Parent.Email), err)
+		candidate.Status = "Error"
+		return "Error", err
+	}
+
+	logger.LogInfo("Successfully merged %d -> %d", clientMergeResult.FromPeopleID, clientMergeResult.ToPeopleID)
+	candidate.Status = "Success"
+	return "Success", nil
+}
+
+func confirmMerge(candidate *MergeCandidate) bool {
+	fmt.Printf("Merge %s -> %s? (y/n): ", MaskEmail(candidate.Child.Email), MaskEmail(candidate.Parent.Email))
+	reader := bufio.NewReader(os.Stdin)
+	response, _ := reader.ReadString('\n')
+	response = strings.TrimSpace(response)
+	return response == "y"
+}
+
+func outputResults(result *MergeResult, config *MergeConfig, mergedCount, skippedCount int) error {
+	formatter, err := selectFormatter(config.OutputFormat)
+	if err != nil {
+		return err
+	}
+
+	output, err := formatter.Format(result, mergedCount, skippedCount)
+	if err != nil {
+		return fmt.Errorf("failed to format output: %v", err)
+	}
+
+	logger.LogInfo("Outputting merge results")
+	logger.LogInfo("%s", output)
+
+	logger.LogInfo("Writing CSV files")
+	csvFormatter := &CSVFormatter{OutputDir: "out"}
+	if _, err := csvFormatter.Format(result, mergedCount, skippedCount); err != nil {
+		return fmt.Errorf("failed to write CSV files: %v", err)
+	}
+
+	return nil
+}
+
+func selectFormatter(format string) (Formatter, error) {
+	switch format {
+	case "json":
+		return &JSONFormatter{}, nil
+	case "markdown":
+		return &MarkdownFormatter{}, nil
+	case "pretty":
+		return &PrettyFormatter{}, nil
+	case "csv":
+		return &CSVFormatter{OutputDir: "out"}, nil
+	default:
+		return nil, fmt.Errorf("unknown output format: %s", format)
+	}
 }
 
 func findMergeCandidates(identities []admina.Identity, config *MergeConfig) (*MergeResult, error) {

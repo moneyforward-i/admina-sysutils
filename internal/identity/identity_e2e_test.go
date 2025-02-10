@@ -1,17 +1,18 @@
-package identity
+package identity_test
 
 import (
 	"context"
 	"encoding/csv"
 	"fmt"
+	"io"
 	"math/rand"
 	"os"
-	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/moneyforward-i/admina-sysutils/internal/admina"
+	"github.com/moneyforward-i/admina-sysutils/internal/identity"
 	"github.com/moneyforward-i/admina-sysutils/internal/logger"
 	"github.com/stretchr/testify/require"
 )
@@ -49,23 +50,16 @@ func writeTestLog(format string, args ...interface{}) {
 	}
 }
 
-// generateTestRunID は4桁のランダムな数字文字列を生成します
+// generateTestRunID はテスト実行時の一意なIDを生成します
 func generateTestRunID() string {
-	rand.Seed(time.Now().UnixNano())
-	return fmt.Sprintf("%04d", rand.Intn(10000))
+	source := rand.NewSource(time.Now().UnixNano())
+	r := rand.New(source)
+	return fmt.Sprintf("%06d", r.Intn(1000000))
 }
 
 // addTestRunID はメールアドレスにテストの実行IDを追加します
 func addTestRunID(email string) string {
-	return fmt.Sprintf("%s.%s", testRunID, email)
-}
-
-// addTestRunIDToEmployeeID は社員番号にテストの実行IDを追加します
-func addTestRunIDToEmployeeID(employeeID string) string {
-	if employeeID == "" {
-		return ""
-	}
-	return fmt.Sprintf("%s-%s", employeeID, testRunID)
+	return testRunID + "." + email
 }
 
 // addCreatedIdentityID は作成したIdentityのIDを記録します
@@ -81,7 +75,7 @@ func verifyMergeResult(t *testing.T, ctx context.Context, client *admina.Client,
 	time.Sleep(10 * time.Second)
 
 	// parent-domainのIdentityを取得
-	identities, err := FetchAllIdentities(client)
+	identities, err := identity.FetchAllIdentities(client)
 	require.NoError(t, err, "Failed to fetch identities after merge")
 
 	// 全てのIdentityの詳細をログ出力
@@ -112,7 +106,7 @@ func verifyMergeResult(t *testing.T, ctx context.Context, client *admina.Client,
 	writeTestLog("Parent Identity after merge: %+v", parentIdentity)
 
 	// マージ後の状態を検証
-	require.Equal(t, "parent-domain.com", ExtractDomain(parentIdentity.Email), "Parent email domain should be parent-domain.com")
+	require.Equal(t, "parent-domain.com", identity.ExtractDomain(parentIdentity.Email), "Parent email domain should be parent-domain.com")
 
 	// セカンダリーメールアドレスの検証を強化
 	writeTestLog("Verifying secondary emails. Expected child email: %s", childEmail)
@@ -129,9 +123,6 @@ func verifyMergeResult(t *testing.T, ctx context.Context, client *admina.Client,
 }
 
 // TestE2E_Identity は実際の環境に対してE2Eテストを実行します
-// このテストは通常のテストコマンドでは実行されません
-// 実行する場合は以下のコマンドを使用してください：
-// make test-e2e
 func TestE2E_Identity(t *testing.T) {
 	// 環境変数のチェック
 	if os.Getenv("E2E_TEST") != "1" {
@@ -214,12 +205,12 @@ func TestE2E_Identity(t *testing.T) {
 			writeTestLog("Created To Identity: %+v", toIdentity)
 
 			// マージ前のマトリックスを取得
-			beforeMatrix, err := GetIdentityMatrix(client)
+			beforeMatrix, err := identity.GetIdentityMatrix(client)
 			require.NoError(t, err, "Failed to get identity matrix before merge")
 			writeTestLog("\nBefore Merge Matrix:\n%+v", beforeMatrix)
 
 			// マージを実行
-			err = MergeIdentities(client, &MergeConfig{
+			err = identity.MergeIdentities(client, &identity.MergeConfig{
 				ParentDomain: "parent-domain.com",
 				ChildDomains: []string{"child1-domain.com", "child2-ext-domain.com"},
 				DryRun:       false,
@@ -236,7 +227,7 @@ func TestE2E_Identity(t *testing.T) {
 			}
 
 			// マージ後のマトリックスを取得
-			afterMatrix, err := GetIdentityMatrix(client)
+			afterMatrix, err := identity.GetIdentityMatrix(client)
 			require.NoError(t, err, "Failed to get identity matrix after merge")
 			writeTestLog("\nAfter Merge Matrix:\n%+v", afterMatrix)
 
@@ -244,7 +235,7 @@ func TestE2E_Identity(t *testing.T) {
 				// マージが成功した場合の検証
 				require.NotEqual(t, beforeMatrix, afterMatrix, "Matrix should change after successful merge")
 				// マトリックスの期待値を検証
-				if ExtractDomain(tt.fromEmail) == "child1-domain.com" {
+				if identity.ExtractDomain(tt.fromEmail) == "child1-domain.com" {
 					// managed to managed のケース
 					managedIndex := -1
 					for i, mType := range afterMatrix.ManagementTypes {
@@ -255,7 +246,7 @@ func TestE2E_Identity(t *testing.T) {
 					}
 					require.NotEqual(t, -1, managedIndex, "Should have managed management type")
 					require.Equal(t, 1, afterMatrix.Matrix[managedIndex][0], "Should have one managed to managed merge")
-				} else if ExtractDomain(tt.fromEmail) == "child2-ext-domain.com" {
+				} else if identity.ExtractDomain(tt.fromEmail) == "child2-ext-domain.com" {
 					// external to managed のケース
 					externalIndex := -1
 					managedIndex := -1
@@ -291,87 +282,59 @@ func TestE2E_Identity(t *testing.T) {
 // findIdentityInCSV はCSVファイルから指定されたメールアドレスのIdentityを探します
 func findIdentityInCSV(t *testing.T, email string) *admina.CreateIdentityRequest {
 	t.Helper()
-
-	// CSVファイルを開く
 	file, err := os.Open("testdata/e2e/identities.csv")
 	if err != nil {
 		t.Fatalf("Failed to open CSV file: %v", err)
 	}
 	defer file.Close()
 
-	// CSVファイルを1行ずつ読み込む
 	reader := csv.NewReader(file)
 	reader.Comment = '#'        // コメント行をスキップ
 	reader.FieldsPerRecord = -1 // フィールド数の検証をスキップ
 
-	// ヘッダー行を読み込む
 	headers, err := reader.Read()
 	if err != nil {
 		t.Fatalf("Failed to read CSV header: %v", err)
 	}
 
-	// 各フィールドのインデックスを取得
-	var (
-		emailIndex          = -1
-		firstNameIndex      = -1
-		lastNameIndex       = -1
-		displayNameIndex    = -1
-		employeeTypeIndex   = -1
-		employeeStatusIndex = -1
-	)
-
-	for i, header := range headers {
-		switch header {
-		case "primaryEmail":
-			emailIndex = i
-		case "firstName":
-			firstNameIndex = i
-		case "lastName":
-			lastNameIndex = i
-		case "displayName":
-			displayNameIndex = i
-		case "employeeType":
-			employeeTypeIndex = i
-		case "employeeStatus":
-			employeeStatusIndex = i
-		}
-	}
-
-	// 必要なフィールドが見つからない場合はエラー
-	if emailIndex == -1 || firstNameIndex == -1 || lastNameIndex == -1 ||
-		displayNameIndex == -1 || employeeTypeIndex == -1 || employeeStatusIndex == -1 {
-		t.Fatal("Required fields not found in CSV header")
-	}
-
-	// データを1行ずつ読み込む
 	for {
 		record, err := reader.Read()
+		if err == io.EOF {
+			break
+		}
 		if err != nil {
-			break // EOFまたはその他のエラー
+			t.Fatalf("Failed to read CSV record: %v", err)
 		}
 
-		// フィールド数が足りない行はスキップ
-		if len(record) <= emailIndex {
-			continue
-		}
-
-		// メールアドレスを比較（テストの実行IDを除去して比較）
-		recordEmail := record[emailIndex]
-		if strings.TrimPrefix(recordEmail, testRunID+".") == strings.TrimPrefix(email, testRunID+".") {
-			// テストの実行IDを追加したメールアドレスを使用
-			modifiedEmail := addTestRunID(record[emailIndex])
-
-			return &admina.CreateIdentityRequest{
-				PrimaryEmail:   modifiedEmail,
-				FirstName:      record[firstNameIndex],
-				LastName:       record[lastNameIndex],
-				DisplayName:    record[displayNameIndex],
-				EmployeeType:   record[employeeTypeIndex],
-				EmployeeStatus: record[employeeStatusIndex],
+		for i, header := range headers {
+			if header == "primaryEmail" && record[i] == email {
+				return createIdentityRequestFromRecord(headers, record)
 			}
 		}
 	}
 	return nil
+}
+
+func createIdentityRequestFromRecord(headers []string, record []string) *admina.CreateIdentityRequest {
+	req := &admina.CreateIdentityRequest{}
+	for i, header := range headers {
+		if i >= len(record) {
+			break
+		}
+		switch header {
+		case "primaryEmail":
+			req.PrimaryEmail = addTestRunID(record[i])
+		case "employeeStatus":
+			req.EmployeeStatus = record[i]
+		case "firstName":
+			req.FirstName = record[i]
+		case "lastName":
+			req.LastName = record[i]
+		case "employeeType":
+			req.EmployeeType = record[i]
+		}
+	}
+	return req
 }
 
 // createIdentity はIdentityを作成し、作成完了を待機します
@@ -394,7 +357,7 @@ func cleanupAllIdentities(t *testing.T, ctx context.Context, client *admina.Clie
 	t.Helper()
 
 	// 全てのIdentityを取得
-	identities, err := FetchAllIdentities(client)
+	identities, err := identity.FetchAllIdentities(client)
 	if err != nil {
 		t.Errorf("Failed to get identities: %v", err)
 		return
@@ -420,7 +383,7 @@ func cleanupAllIdentities(t *testing.T, ctx context.Context, client *admina.Clie
 	// 削除が完了したことを確認
 	maxRetries := 10 // リトライ回数を増やす
 	for i := 0; i < maxRetries; i++ {
-		remainingIdentities, err := FetchAllIdentities(client)
+		remainingIdentities, err := identity.FetchAllIdentities(client)
 		if err != nil {
 			t.Errorf("Failed to get remaining identities: %v", err)
 			return

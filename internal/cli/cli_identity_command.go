@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/moneyforward-i/admina-sysutils/internal/admina"
@@ -40,7 +41,9 @@ func NewIdentityCommand() *IdentityCommand {
 
 func (c *IdentityCommand) Run(args []string) error {
 	if len(args) == 0 {
-		return fmt.Errorf("サブコマンドが必要です")
+		logger.LogInfo("No subcommand specified")
+		fmt.Fprintln(os.Stderr, c.Help())
+		return nil
 	}
 
 	subCmd := args[0]
@@ -59,7 +62,7 @@ func (c *IdentityCommand) Run(args []string) error {
 		}
 		return c.runSameMerge()
 	case "help":
-		logger.Print(c.Help())
+		fmt.Fprintln(os.Stderr, c.Help())
 		return nil
 	default:
 		return fmt.Errorf("不明なサブコマンド: %s", subCmd)
