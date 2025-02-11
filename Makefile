@@ -51,7 +51,7 @@ build: clean
 # test: テストを実行し、カバレッジレポートとJUnit形式のテストレポートを生成します。
 test:
 	mkdir -p $(COVERAGE_DIR) $(REPORT_DIR)
-	set -a && source .env && set +a && go test -v -coverprofile=$(COVERAGE_DIR)/coverage.out ./... | tee >(go-junit-report > $(REPORT_DIR)/report.xml)
+	go test -v -coverprofile=$(COVERAGE_DIR)/coverage.out ./... | tee >(go-junit-report > $(REPORT_DIR)/report.xml)
 	npx xunit-viewer --results=$(REPORT_DIR)/report.xml --output=$(REPORT_DIR)/report.html
 	go tool cover -html=$(COVERAGE_DIR)/coverage.out -o $(COVERAGE_DIR)/coverage.html
 	go tool cover -func=$(COVERAGE_DIR)/coverage.out
