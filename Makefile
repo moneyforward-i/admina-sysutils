@@ -51,7 +51,7 @@ build: clean
 # test: テストを実行し、カバレッジレポートとJUnit形式のテストレポートを生成します。
 test:
 	mkdir -p $(COVERAGE_DIR) $(REPORT_DIR)
-	go test -v -coverprofile=$(COVERAGE_DIR)/coverage.out ./... | tee >(go-junit-report > $(REPORT_DIR)/report.xml)
+	set -a && source .env && set +a && go test -v -coverprofile=$(COVERAGE_DIR)/coverage.out ./... | tee >(go-junit-report > $(REPORT_DIR)/report.xml)
 	npx xunit-viewer --results=$(REPORT_DIR)/report.xml --output=$(REPORT_DIR)/report.html
 	go tool cover -html=$(COVERAGE_DIR)/coverage.out -o $(COVERAGE_DIR)/coverage.html
 	go tool cover -func=$(COVERAGE_DIR)/coverage.out
@@ -80,12 +80,14 @@ fmt:
 build-all:
 	mkdir -p $(BUILD_DIR)
 	mkdir -p $(OUT_DIR)/bin
-	GOOS=linux GOARCH=amd64 go build $(LDFLAGS) -o $(BUILD_DIR)/linux/$(BINARY_NAME) -v ./cmd/admina-sysutils
-	GOOS=darwin GOARCH=amd64 go build $(LDFLAGS) -o $(BUILD_DIR)/darwin/$(BINARY_NAME) -v ./cmd/admina-sysutils
-	GOOS=windows GOARCH=amd64 go build $(LDFLAGS) -o $(BUILD_DIR)/windows/$(BINARY_NAME).exe -v ./cmd/admina-sysutils
-	cd $(BUILD_DIR)/linux && zip ../../$(OUT_DIR)/bin/$(BINARY_NAME)-linux-amd64.zip $(BINARY_NAME)
-	cd $(BUILD_DIR)/darwin && zip ../../$(OUT_DIR)/bin/$(BINARY_NAME)-darwin-amd64.zip $(BINARY_NAME)
-	cd $(BUILD_DIR)/windows && zip ../../$(OUT_DIR)/bin/$(BINARY_NAME)-windows-amd64.zip $(BINARY_NAME).exe
+	GOOS=linux GOARCH=amd64 go build $(LDFLAGS) -o $(BUILD_DIR)/linux/admina/$(BINARY_NAME) -v ./cmd/admina-sysutils
+	GOOS=darwin GOARCH=amd64 go build $(LDFLAGS) -o $(BUILD_DIR)/darwin/admina/$(BINARY_NAME) -v ./cmd/admina-sysutils
+	GOOS=windows GOARCH=amd64 go build $(LDFLAGS) -o $(BUILD_DIR)/windows/admina/$(BINARY_NAME).exe -v ./cmd/admina-sysutils
+	# PowerShellスクリプトをUTF-16LEに変換してコピー
+	nkf -w16L0 scripts/windows/samemerge.ps1 > $(BUILD_DIR)/windows/admina/samemerge.ps1
+	cd $(BUILD_DIR)/linux && zip -r ../../$(OUT_DIR)/bin/$(BINARY_NAME)-linux-amd64.zip admina
+	cd $(BUILD_DIR)/darwin && zip -r ../../$(OUT_DIR)/bin/$(BINARY_NAME)-darwin-amd64.zip admina
+	cd $(BUILD_DIR)/windows && zip -r ../../$(OUT_DIR)/bin/$(BINARY_NAME)-windows-amd64.zip admina
 
 # deps: 依存関係を更新します。
 deps:

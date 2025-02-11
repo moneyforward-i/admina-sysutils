@@ -10,22 +10,46 @@ import (
 // CSVWriter はCSVファイルの書き込みを行うための構造体
 type CSVWriter struct {
 	outputDir string
+	isInit    bool
 }
 
 // NewCSVWriter は新しいCSVWriterを作成します
 func NewCSVWriter(outputDir string) (*CSVWriter, error) {
-	// 出力ディレクトリの作成
-	if err := os.MkdirAll(outputDir, os.ModePerm); err != nil {
-		return nil, fmt.Errorf("failed to create output directory: %v", err)
-	}
-
 	return &CSVWriter{
 		outputDir: outputDir,
+		isInit:    false,
 	}, nil
+}
+
+// initOutputDir は出力ディレクトリを初期化します
+func (w *CSVWriter) initOutputDir() error {
+	if w.isInit {
+		return nil
+	}
+
+	// 出力ディレクトリが存在する場合は削除
+	if _, err := os.Stat(w.outputDir); err == nil {
+		if err := os.RemoveAll(w.outputDir); err != nil {
+			return fmt.Errorf("failed to remove existing directory: %v", err)
+		}
+	}
+
+	// 出力ディレクトリの作成
+	if err := os.MkdirAll(w.outputDir, os.ModePerm); err != nil {
+		return fmt.Errorf("failed to create output directory: %v", err)
+	}
+
+	w.isInit = true
+	return nil
 }
 
 // WriteCSV はCSVファイルを書き込みます
 func (w *CSVWriter) WriteCSV(filename string, headers []string, rows [][]string) error {
+	// 初回書き込み時にディレクトリを初期化
+	if err := w.initOutputDir(); err != nil {
+		return err
+	}
+
 	// ファイルパスの作成
 	filePath := filepath.Join(w.outputDir, filename)
 
