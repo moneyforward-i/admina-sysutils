@@ -18,36 +18,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Download build artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
-          name: build-artifacts
+          name: ${{ needs.build.outputs.artifact_name }}
           path: out/bin/
-      - name: Upload Linux binary
-        uses: actions/upload-release-asset@v1
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.release.tag_name }}
+          files: |
+            ./out/bin/admina-sysutils-linux-amd64.zip
+            ./out/bin/admina-sysutils-windows-amd64.zip
+            ./out/bin/admina-sysutils-darwin-amd64.zip
+          fail_on_unmatched_files: true
+          append_body: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ github.event.release.upload_url }}
-          asset_path: ./out/bin/admina-sysutils-linux-amd64.zip
-          asset_name: admina-sysutils-linux-amd64.zip
-          asset_content_type: application/zip
-
-      - name: Upload Windows binary
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ github.event.release.upload_url }}
-          asset_path: ./out/bin/admina-sysutils-windows-amd64.zip
-          asset_name: admina-sysutils-windows-amd64.zip
-          asset_content_type: application/zip
-
-      - name: Upload MacOS binary
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ github.event.release.upload_url }}
-          asset_path: ./out/bin/admina-sysutils-darwin-amd64.zip
-          asset_name: admina-sysutils-darwin-amd64.zip
-          asset_content_type: application/zip
