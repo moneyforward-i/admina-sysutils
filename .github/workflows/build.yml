@@ -6,10 +6,18 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+  workflow_call:
+    outputs:
+      artifact_name:
+        description: "The name of the uploaded artifact"
+        value: ${{ jobs.build.outputs.artifact_name }}
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    outputs:
+      build_status: ${{ job.status }}
+      artifact_name: build-artifacts-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
       - uses: actions/checkout@v4
       - name: Set up Go
@@ -24,3 +32,10 @@ jobs:
           sudo apt-get install -y zip nkf
       - name: Build
         run: make build-cd
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts-${{ github.run_id }}-${{ github.run_attempt }}
+          path: out/bin/
+          retention-days: 1
+          compression-level: 0
