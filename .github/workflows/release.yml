@@ -9,16 +9,19 @@ on:
     types: [created]
 
 jobs:
-  build-and-release:
+  build:
+    uses: ./.github/workflows/build.yml
+
+  release:
+    needs: build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Set up Go
-        uses: actions/setup-go@v5
+      - name: Download build artifacts
+        uses: actions/download-artifact@v3
         with:
-          go-version: "1.23"
-      - name: Build all platforms
-        run: make build-cd
+          name: build-artifacts
+          path: out/bin/
       - name: Upload Linux binary
         uses: actions/upload-release-asset@v1
         env:

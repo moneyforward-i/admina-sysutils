@@ -6,10 +6,13 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+  workflow_call:
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    outputs:
+      build_status: ${{ job.status }}
     steps:
       - uses: actions/checkout@v4
       - name: Set up Go
@@ -24,3 +27,8 @@ jobs:
           sudo apt-get install -y zip nkf
       - name: Build
         run: make build-cd
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-artifacts
+          path: out/bin/
