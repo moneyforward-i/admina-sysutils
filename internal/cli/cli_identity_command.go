@@ -21,6 +21,7 @@ type IdentityCommand struct {
 	dryRun       *bool
 	autoApprove  *bool
 	noMask       *bool
+	outDir       *string
 }
 
 // NewIdentityCommand creates a new identity command handler
@@ -35,6 +36,7 @@ func NewIdentityCommand() *IdentityCommand {
 	cmd.dryRun = cmd.flags.Bool("dry-run", false, "マージ操作のシミュレーションを実行")
 	cmd.autoApprove = cmd.flags.Bool("y", false, "確認プロンプトをスキップ")
 	cmd.noMask = cmd.flags.Bool("nomask", false, "ログとファイル出力でメールアドレスをマスクしない")
+	cmd.outDir = cmd.flags.String("outdir", "out", "出力ディレクトリのパス")
 
 	return cmd
 }
@@ -107,6 +109,8 @@ Samemergeサブコマンドのオプション:
 
   --nomask        ログとファイル出力でメールアドレスをマスクしない
 
+  --outdir        出力ディレクトリのパスを指定します
+
 使用例:
   # マトリックスの表示
   admina-sysutils identity matrix --output markdown
@@ -157,6 +161,7 @@ func (c *IdentityCommand) runSameMerge() error {
 		DryRun:       *c.dryRun,
 		AutoApprove:  *c.autoApprove,
 		OutputFormat: *c.outputFormat,
+		OutputDir:    *c.outDir,
 	}
 	identity.SetNoMask(*c.noMask)
 	return identity.MergeIdentities(client, mergeConfig)

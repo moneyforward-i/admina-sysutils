@@ -17,6 +17,7 @@ type MergeConfig struct {
 	DryRun       bool
 	AutoApprove  bool
 	OutputFormat string
+	OutputDir    string
 }
 
 type MergeCandidate struct {
@@ -43,6 +44,15 @@ type MergeResult struct {
 // Formatter はマージ結果のフォーマット方法を定義するインターフェース
 type Formatter interface {
 	Format(result *MergeResult, mergedCount, skippedCount int) (string, error)
+}
+
+// getOutputDir はOutputDirのデフォルト値を解決します
+func (c *MergeConfig) getOutputDir() string {
+	if c.OutputDir != "" {
+		return c.OutputDir
+	}
+	// デフォルトは現在のディレクトリの下のout
+	return "out"
 }
 
 func MergeIdentities(client Client, config *MergeConfig) error {
@@ -155,10 +165,54 @@ func outputResults(result *MergeResult, config *MergeConfig, mergedCount, skippe
 	logger.LogInfo("Outputting merge results")
 	logger.LogInfo("%s", output)
 
-	logger.LogInfo("Writing CSV files")
-	csvFormatter := &CSVFormatter{OutputDir: "out"}
-	if _, err := csvFormatter.Format(result, mergedCount, skippedCount); err != nil {
-		return fmt.Errorf("failed to write CSV files: %v", err)
+	// CSVファイルの出力処理
+	outputDir := config.getOutputDir()
+	if outputDir != "" {
+		logger.LogInfo("Writing CSV files")
+
+		// CSVファイルの書き込み
+		csvWriter, err := NewCSVWriter(outputDir)
+		if err != nil {
+			return fmt.Errorf("failed to create CSV writer: %v", err)
+		}
+
+		// マッピングファイルの作成
+		mappingRows := make([][]string, 0, len(result.Candidates))
+		for _, candidate := range result.Candidates {
+			parentEmail := MaskEmail(candidate.Parent.Email)
+			childEmail := MaskEmail(candidate.Child.Email)
+			mappingRows = append(mappingRows, []string{
+				parentEmail,
+				candidate.Parent.ID,
+				childEmail,
+				candidate.Child.ID,
+				candidate.Status,
+			})
+		}
+
+		if err := csvWriter.WriteCSV("identity_mappings.csv",
+			[]string{"ParentEmail", "ParentIdentityID", "ChildEmail", "ChildIdentityID", "Status"},
+			mappingRows); err != nil {
+			return fmt.Errorf("failed to write mappings CSV: %v", err)
+		}
+
+		// アンマップファイルの作成
+		unmappedRows := make([][]string, 0, len(result.Unmapped))
+		for _, unmapped := range result.Unmapped {
+			childEmail := MaskEmail(unmapped.Email)
+			unmappedRows = append(unmappedRows, []string{
+				childEmail,
+				unmapped.ID,
+			})
+		}
+
+		if err := csvWriter.WriteCSV("unmapped_child_identities.csv",
+			[]string{"ChildEmail", "ChildIdentityID"},
+			unmappedRows); err != nil {
+			return fmt.Errorf("failed to write unmapped CSV: %v", err)
+		}
+
+		logger.LogInfo("CSV files written to %s", outputDir)
 	}
 
 	return nil
@@ -173,7 +227,7 @@ func selectFormatter(format string) (Formatter, error) {
 	case "pretty":
 		return &PrettyFormatter{}, nil
 	case "csv":
-		return &CSVFormatter{OutputDir: "out"}, nil
+		return &CSVFormatter{}, nil
 	default:
 		return nil, fmt.Errorf("unknown output format: %s", format)
 	}
