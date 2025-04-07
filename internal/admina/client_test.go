@@ -40,10 +40,30 @@ func setupTestServer() (*httptest.Server, *Client) {
 			}
 			json.NewEncoder(w).Encode(response)
 		case "/api/v1/organizations/test-org/identity/merge":
-			response := []MergeIdentity{
-				{
-					FromPeopleID: 1,
-					ToPeopleID:   2,
+			response := APIResponse[[]Identity]{
+				Meta: Meta{
+					NextCursor: "",
+				},
+				Items: []Identity{
+					{
+						ID:          "1",
+						PeopleID:    2,
+						DisplayName: "Test User",
+						Email:       "test@example.com",
+						MergedPeople: []struct {
+							ID          int    `json:"id"`
+							DisplayName string `json:"displayName"`
+							PrimaryEmail string `json:"primaryEmail"`
+							Username    string `json:"username"`
+						}{
+							{
+								ID:          1,
+								DisplayName: "",
+								PrimaryEmail: "from@example.com",
+								Username:    "",
+							},
+						},
+					},
 				},
 			}
 			json.NewEncoder(w).Encode(response)

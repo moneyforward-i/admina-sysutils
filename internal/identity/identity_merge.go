@@ -138,7 +138,7 @@ func processSingleCandidate(ctx context.Context, client Client, config *MergeCon
 		return "Error", err
 	}
 
-	logger.LogInfo("Successfully merged %d -> %d", clientMergeResult.FromPeopleID, clientMergeResult.ToPeopleID)
+	logger.LogInfo("Successfully merged %s (%d) -> %s (%d)", MaskEmail(candidate.Child.Email), clientMergeResult.FromPeopleID, MaskEmail(candidate.Parent.Email), clientMergeResult.ToPeopleID)
 	candidate.Status = "Success"
 	return "Success", nil
 }
@@ -162,8 +162,8 @@ func outputResults(result *MergeResult, config *MergeConfig, mergedCount, skippe
 		return fmt.Errorf("failed to format output: %v", err)
 	}
 
-	logger.LogInfo("Outputting merge results")
-	logger.LogInfo("%s", output)
+	// JSONフォーマッタの場合、ログレベルをDEBUGに変更
+	logger.LogDebug("%s", output)
 
 	// CSVファイルの出力処理
 	outputDir := config.getOutputDir()
