@@ -41,9 +41,9 @@ func setupTestServer() (*httptest.Server, *Client) {
 			json.NewEncoder(w).Encode(response)
 		case "/api/v1/organizations/test-org/identity/merge":
 			// Revert to using Raw JSON String for the mock response
-			rawJsonResponse := `{
+			rawJSONResponse := `{
 				"meta": {
-					"next_cursor": ""
+					"next_cursor": "next"
 				},
 				"items": [
 					{
@@ -68,7 +68,7 @@ func setupTestServer() (*httptest.Server, *Client) {
 				"dummy_feature_field": "dummy_feature_value"
 			}`
 			w.Header().Set("Content-Type", "application/json")
-			w.Write([]byte(rawJsonResponse))
+			w.Write([]byte(rawJSONResponse))
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}

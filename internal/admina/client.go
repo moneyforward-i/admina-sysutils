@@ -161,10 +161,10 @@ type Identity struct {
 	Email           string   `json:"primaryEmail"`
 	SecondaryEmails []string `json:"secondaryEmails"`
 	MergedPeople    []struct {
-		ID          int    `json:"id"`
-		DisplayName string `json:"displayName"`
+		ID           int    `json:"id"`
+		DisplayName  string `json:"displayName"`
 		PrimaryEmail string `json:"primaryEmail"`
-		Username    string `json:"username"`
+		Username     string `json:"username"`
 	} `json:"mergedPeople,omitempty"`
 }
 
