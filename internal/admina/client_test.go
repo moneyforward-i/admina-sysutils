@@ -40,33 +40,35 @@ func setupTestServer() (*httptest.Server, *Client) {
 			}
 			json.NewEncoder(w).Encode(response)
 		case "/api/v1/organizations/test-org/identity/merge":
-			response := APIResponse[[]Identity]{
-				Meta: Meta{
-					NextCursor: "",
+			// Revert to using Raw JSON String for the mock response
+			rawJsonResponse := `{
+				"meta": {
+					"next_cursor": ""
 				},
-				Items: []Identity{
+				"items": [
 					{
-						ID:          "1",
-						PeopleID:    2,
-						DisplayName: "Test User",
-						Email:       "test@example.com",
-						MergedPeople: []struct {
-							ID          int    `json:"id"`
-							DisplayName string `json:"displayName"`
-							PrimaryEmail string `json:"primaryEmail"`
-							Username    string `json:"username"`
-						}{
+						"id": "1",
+						"peopleId": 2,
+						"displayName": "Test User",
+						"primaryEmail": "test@example.com",
+						"secondaryEmails": [],
+						"managementType": "managed",
+						"employeeType": "full_time_employee",
+						"employeeStatus": "active",
+						"mergedPeople": [
 							{
-								ID:          1,
-								DisplayName: "",
-								PrimaryEmail: "from@example.com",
-								Username:    "",
-							},
-						},
-					},
-				},
-			}
-			json.NewEncoder(w).Encode(response)
+								"id": 1,
+								"displayName": "",
+								"primaryEmail": "from@example.com",
+								"username": ""
+							}
+						]
+					}
+				],
+				"dummy_feature_field": "dummy_feature_value"
+			}`
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte(rawJsonResponse))
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}
