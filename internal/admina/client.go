@@ -160,6 +160,12 @@ type Identity struct {
 	EmployeeStatus  string   `json:"employeeStatus"`
 	Email           string   `json:"primaryEmail"`
 	SecondaryEmails []string `json:"secondaryEmails"`
+	MergedPeople    []struct {
+		ID           int    `json:"id"`
+		DisplayName  string `json:"displayName"`
+		PrimaryEmail string `json:"primaryEmail"`
+		Username     string `json:"username"`
+	} `json:"mergedPeople,omitempty"`
 }
 
 func (c *Client) GetIdentities(ctx context.Context, cursor string) ([]Identity, string, error) {
@@ -237,10 +243,21 @@ func (c *Client) MergeIdentities(ctx context.Context, fromPeopleID, toPeopleID i
 		return MergeIdentity{}, err
 	}
 
-	var response []MergeIdentity
-	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
-		if err == io.EOF {
-			c.debugLog("Received EOF response, assuming merge success")
+	// レスポンスボディをバッファに読み込む
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return MergeIdentity{}, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	// RAWデータをログ出力
+	c.debugLog("Raw Response Body: %s", string(bodyBytes))
+
+	// APIからのレスポンス形式に合わせて構造体を定義
+	var response APIResponse[[]Identity]
+
+	if err := json.Unmarshal(bodyBytes, &response); err != nil {
+		if len(bodyBytes) == 0 || string(bodyBytes) == "{}" || string(bodyBytes) == "[]" {
+			c.debugLog("Received empty response, assuming merge success")
 			return MergeIdentity{
 				FromPeopleID: fromPeopleID,
 				ToPeopleID:   toPeopleID,
@@ -249,15 +266,37 @@ func (c *Client) MergeIdentities(ctx context.Context, fromPeopleID, toPeopleID i
 		return MergeIdentity{}, fmt.Errorf("failed to decode merge result: %w", err)
 	}
 
-	if len(response) == 0 {
-		c.debugLog("Received empty response, assuming merge success")
+	// レスポンスからマージされた情報を抽出
+	if len(response.Items) == 0 {
+		c.debugLog("Received empty items array, assuming merge success")
 		return MergeIdentity{
 			FromPeopleID: fromPeopleID,
 			ToPeopleID:   toPeopleID,
 		}, nil
 	}
 
-	return response[0], nil
+	// toPeopleID に該当するアイテムを探す
+	for _, item := range response.Items {
+		if item.PeopleID == toPeopleID {
+			// マージされたアイテムが見つかった
+			// mergedPeople 配列から fromPeopleID に該当する情報を確認
+			for _, mergedPerson := range item.MergedPeople {
+				if mergedPerson.ID == fromPeopleID {
+					return MergeIdentity{
+						FromPeopleID: fromPeopleID,
+						ToPeopleID:   toPeopleID,
+					}, nil
+				}
+			}
+		}
+	}
+
+	// 該当するマージ情報が見つからない場合（通常はここに来ないはず）
+	c.debugLog("Could not find merged identity in response, assuming success based on request")
+	return MergeIdentity{
+		FromPeopleID: fromPeopleID,
+		ToPeopleID:   toPeopleID,
+	}, nil
 }
 
 // Organization関連の構造体と関数
