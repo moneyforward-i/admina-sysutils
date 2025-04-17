@@ -8,6 +8,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"time"
 
@@ -34,7 +35,25 @@ func NewClient() *Client {
 		baseURL = DefaultBaseURL
 	}
 
+	// Log proxy information if set
+	proxyURLStr := os.Getenv("HTTPS_PROXY")
+	if proxyURLStr == "" {
+		proxyURLStr = os.Getenv("HTTP_PROXY")
+	}
+
+	if proxyURLStr != "" {
+		parsedURL, err := url.Parse(proxyURLStr)
+		if err != nil {
+			logger.LogWarning("Failed to parse proxy URL from environment variable (%s): %v", proxyURLStr, err)
+		} else {
+			// Remove user info (credentials) before logging
+			parsedURL.User = nil
+			logger.LogInfo("Using proxy: %s", parsedURL.String())
+		}
+	}
+
 	transport := &http.Transport{
+		Proxy: http.ProxyFromEnvironment,
 		DialContext: (&net.Dialer{
 			Timeout:   defaultTimeout,
 			KeepAlive: defaultTimeout,
