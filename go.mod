@@ -3,6 +3,7 @@ module github.com/moneyforward-i/admina-sysutils
 go 1.23.2
 
 require (
+	github.com/elazarl/goproxy v1.7.2
 	github.com/golangci/golangci-lint v1.62.2
 	github.com/jstemmer/go-junit-report v1.0.0
 	github.com/stretchr/testify v1.10.0

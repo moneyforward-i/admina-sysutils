@@ -2,15 +2,21 @@ package identity_test
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/csv"
 	"fmt"
 	"io"
 	"math/rand"
+	"net"
+	"net/http"
 	"os"
+	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/elazarl/goproxy"
 	"github.com/moneyforward-i/admina-sysutils/internal/admina"
 	"github.com/moneyforward-i/admina-sysutils/internal/identity"
 	"github.com/moneyforward-i/admina-sysutils/internal/logger"
@@ -19,15 +25,172 @@ import (
 
 const (
 	excludeEmail = "murakami.katsutoshi@i.moneyforward.com"
+	proxyUser    = "proxyuser" // プロキシサーバーの認証ユーザー名
+	proxyPass    = "proxypass" // プロキシサーバーの認証パスワード
 )
 
 // テストで作成したIdentityのIDを記録する
 var (
-	createdIdentityIDs = make(map[string]struct{})
-	idMutex            sync.Mutex
-	testRunID          string // テストの実行ID
-	testLogFile        *os.File
+	createdIdentityIDs  = make(map[string]struct{})
+	idMutex             sync.Mutex
+	testRunID           string // テストの実行ID
+	testLogFile         *os.File
+	proxyRequestCounter *atomic.Int64 // プロキシを通過したリクエスト数をカウント
 )
+
+// TestMain はテスト実行の前後で共通のセットアップと後処理を行います
+func TestMain(m *testing.M) {
+	// E2E環境変数のチェック
+	if os.Getenv("E2E_TEST") != "1" {
+		// E2E_TESTが設定されていない場合は通常の方法でテストを実行
+		os.Exit(m.Run())
+		return
+	}
+
+	// ロガーの初期化
+	logger.Init()
+	logger.LogInfo("Starting E2E tests with proxy setup")
+
+	// プロキシサーバーの起動
+	counter := &atomic.Int64{}
+	proxyURL, stopProxy, err := startProxyServer(counter)
+	if err != nil {
+		logger.LogError("Failed to start proxy server: %v", err)
+		os.Exit(1)
+	}
+	proxyRequestCounter = counter
+	logger.LogInfo("Started proxy server at: %s", proxyURL)
+
+	// 環境変数の設定
+	origHTTPProxy := os.Getenv("HTTP_PROXY")
+	origHTTPSProxy := os.Getenv("HTTPS_PROXY")
+	os.Setenv("HTTP_PROXY", proxyURL)
+	os.Setenv("HTTPS_PROXY", proxyURL)
+
+	// 後処理を設定
+	defer func() {
+		// プロキシサーバーの停止
+		stopProxy()
+		logger.LogInfo("Stopped proxy server. Total requests through proxy: %d", proxyRequestCounter.Load())
+
+		// 環境変数を元に戻す
+		if origHTTPProxy != "" {
+			os.Setenv("HTTP_PROXY", origHTTPProxy)
+		} else {
+			os.Unsetenv("HTTP_PROXY")
+		}
+		if origHTTPSProxy != "" {
+			os.Setenv("HTTPS_PROXY", origHTTPSProxy)
+		} else {
+			os.Unsetenv("HTTPS_PROXY")
+		}
+	}()
+
+	// テストの実行
+	exitCode := m.Run()
+	os.Exit(exitCode)
+}
+
+// startProxyServer は認証付きのHTTPプロキシサーバーを起動します
+func startProxyServer(counter *atomic.Int64) (string, func(), error) {
+	// 空きポートを見つける
+	listener, err := net.Listen("tcp", "localhost:0")
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to find available port: %w", err)
+	}
+	port := listener.Addr().(*net.TCPAddr).Port
+
+	// プロキシサーバーの作成
+	proxy := goproxy.NewProxyHttpServer()
+	proxy.Verbose = true
+
+	// HTTP(S)リクエストの認証ハンドラー
+	proxy.OnRequest().DoFunc(func(req *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http.Response) {
+		// Proxy-Authorizationヘッダーの確認
+		authHeader := req.Header.Get("Proxy-Authorization")
+		if !isValidProxyAuth(authHeader) {
+			// 認証失敗
+			logger.LogInfo("Proxy authentication failed for HTTP request to %s", req.URL.String())
+			return req, goproxy.NewResponse(req, goproxy.ContentTypeText, http.StatusProxyAuthRequired,
+				"Proxy Authentication Required")
+		}
+
+		// 認証成功
+		counter.Add(1)
+		logger.LogInfo("Proxy request: %s %s", req.Method, req.URL.String())
+		return req, nil
+	})
+
+	// CONNECT (HTTPS)リクエストの認証ハンドラー
+	proxy.OnRequest().HandleConnectFunc(func(host string, ctx *goproxy.ProxyCtx) (*goproxy.ConnectAction, string) {
+		// Proxy-Authorizationヘッダーの確認
+		authHeader := ctx.Req.Header.Get("Proxy-Authorization")
+		if !isValidProxyAuth(authHeader) {
+			// 認証失敗
+			logger.LogInfo("Proxy authentication failed for CONNECT request to %s", host)
+			return goproxy.RejectConnect, host
+		}
+
+		// 認証成功
+		counter.Add(1)
+		logger.LogInfo("Proxy CONNECT request to %s", host)
+		return goproxy.OkConnect, host
+	})
+
+	// サーバーの起動
+	server := &http.Server{
+		Handler: proxy,
+	}
+
+	// 別のゴルーチンでサーバーを起動
+	go func() {
+		if err := server.Serve(listener); err != nil && err != http.ErrServerClosed {
+			logger.LogError("Proxy server error: %v", err)
+		}
+	}()
+
+	// Proxy URL（認証情報付き）
+	proxyURL := fmt.Sprintf("http://%s:%s@localhost:%d", proxyUser, proxyPass, port)
+
+	// サーバー停止用の関数
+	stopFunc := func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		server.Shutdown(ctx)
+	}
+
+	return proxyURL, stopFunc, nil
+}
+
+// isValidProxyAuth はProxy-Authorizationヘッダーが有効かどうかを検証します
+func isValidProxyAuth(authHeader string) bool {
+	if authHeader == "" {
+		return false
+	}
+
+	// "Basic "プレフィックスを削除
+	const prefix = "Basic "
+	if !strings.HasPrefix(authHeader, prefix) {
+		return false
+	}
+
+	// Base64デコード
+	encoded := authHeader[len(prefix):]
+	decoded, err := base64.StdEncoding.DecodeString(encoded)
+	if err != nil {
+		return false
+	}
+
+	// username:passwordの形式をチェック
+	auth := string(decoded)
+	credentials := strings.SplitN(auth, ":", 2)
+	if len(credentials) != 2 {
+		return false
+	}
+
+	// 認証情報の検証
+	return credentials[0] == proxyUser && credentials[1] == proxyPass
+}
 
 // initTestLog はテストログファイルを初期化します
 func initTestLog(t *testing.T) {
@@ -154,6 +317,11 @@ func TestE2E_Identity(t *testing.T) {
 	// テスト終了時に全てのIdentityを削除
 	defer cleanupAllIdentities(t, ctx, client)
 
+	// プロキシリクエストカウンターをリセット（TestMainでセットされていればリセットする）
+	if proxyRequestCounter != nil {
+		proxyRequestCounter.Store(0)
+	}
+
 	// テストケースの定義
 	tests := []struct {
 		name       string
@@ -184,6 +352,11 @@ func TestE2E_Identity(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			writeTestLog("\n=== Test Case: %s ===", tt.name)
+
+			// プロキシリクエストカウンターをリセット（各テストケースの開始時）
+			if proxyRequestCounter != nil {
+				proxyRequestCounter.Store(0)
+			}
 
 			// クリーンアップを実行
 			cleanupAllIdentities(t, ctx, client)
@@ -275,6 +448,13 @@ func TestE2E_Identity(t *testing.T) {
 
 			// クリーンアップ
 			cleanupAllIdentities(t, ctx, client)
+
+			// プロキシを通過したリクエストの検証（TestMainでproxyRequestCounterが設定されている場合のみ）
+			if proxyRequestCounter != nil {
+				requestCount := proxyRequestCounter.Load()
+				writeTestLog("Proxy request count for test case '%s': %d", tt.name, requestCount)
+				require.Greater(t, requestCount, int64(0), "API requests should go through the proxy")
+			}
 		})
 	}
 }
