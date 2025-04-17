@@ -1,0 +1,38 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+開発時のルール
+
+コーディング
+* Goの標準的なコーディング規約に従うこと
+* gofmtを使用してコードをフォーマットすること
+* コーディング終了後は必ずLintとテストを実行すること
+
+リントとスタイル
+* make lint コマンドで静的解析を実行する
+
+テスト
+* make test コマンドでユニットテストを実行
+* make test-e2e コマンドでE2Eテストを実行
+
+テストデータ生成時には規約を遵守すること
+managementTypeの使用可能な値: managed, external, unregistered
+employeeTypeはmanagementTypeごとに決まった値を使用
+
+テスト用ドメイン:
+@parent-domain.com (Managed/Unregisterdユーザー用)
+@child1-domain.com (Managedユーザー用)
+@child2-ext-domain.com (Externalユーザー用)
+
+テストデータの修正は必ず許可を得てから行うこと
+
+ビルドとデプロイ
+Makefileを参照してMakefile経由で行ってください。
+
+その他
+コードの変更を加える前に既存のコードスタイルを確認し、一貫性を保つこと
+パフォーマンスに影響する変更を行う場合は、ベンチマークを実施すること
+セキュリティに関わる機能を実装する場合は、gosecによる静的解析を行うこと
+READMEドキュメント、CONTRIBUTEドキュメントの更新の必要性を確認すること

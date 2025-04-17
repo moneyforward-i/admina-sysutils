@@ -351,112 +351,143 @@ func TestE2E_Identity(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			writeTestLog("\n=== Test Case: %s ===", tt.name)
-
-			// プロキシリクエストカウンターをリセット（各テストケースの開始時）
-			if proxyRequestCounter != nil {
-				proxyRequestCounter.Store(0)
-			}
-
-			// クリーンアップを実行
-			cleanupAllIdentities(t, ctx, client)
-
-			// fromIdentityの作成
-			fromIdentity := findIdentityInCSV(t, tt.fromEmail)
-			require.NotNil(t, fromIdentity, "Failed to find from identity in CSV")
-			id, err := createIdentity(client, fromIdentity)
-			require.NoError(t, err, "Failed to create from identity")
-			addCreatedIdentityID(id)
-			writeTestLog("Created From Identity: %+v", fromIdentity)
-
-			// toIdentityの作成
-			toIdentity := findIdentityInCSV(t, tt.toEmail)
-			require.NotNil(t, toIdentity, "Failed to find to identity in CSV")
-			id, err = createIdentity(client, toIdentity)
-			require.NoError(t, err, "Failed to create to identity")
-			addCreatedIdentityID(id)
-			writeTestLog("Created To Identity: %+v", toIdentity)
-
-			// マージ前のマトリックスを取得
-			beforeMatrix, err := identity.GetIdentityMatrix(client)
-			require.NoError(t, err, "Failed to get identity matrix before merge")
-			writeTestLog("\nBefore Merge Matrix:\n%+v", beforeMatrix)
-
-			// マージを実行
-			err = identity.MergeIdentities(client, &identity.MergeConfig{
-				ParentDomain: "parent-domain.com",
-				ChildDomains: []string{"child1-domain.com", "child2-ext-domain.com"},
-				DryRun:       false,
-				AutoApprove:  true,
-				OutputFormat: "json",
-			})
-
-			if tt.shouldPass {
-				require.NoError(t, err, "Same merge should succeed")
-				// マージ結果の詳細な検証
-				verifyMergeResult(t, ctx, client, addTestRunID(tt.toEmail), addTestRunID(tt.fromEmail))
-			} else {
-				require.NoError(t, err, "Same merge should complete without error even if no merges occur")
-			}
-
-			// マージ後のマトリックスを取得
-			afterMatrix, err := identity.GetIdentityMatrix(client)
-			require.NoError(t, err, "Failed to get identity matrix after merge")
-			writeTestLog("\nAfter Merge Matrix:\n%+v", afterMatrix)
-
-			if tt.shouldPass {
-				// マージが成功した場合の検証
-				require.NotEqual(t, beforeMatrix, afterMatrix, "Matrix should change after successful merge")
-				// マトリックスの期待値を検証
-				if identity.ExtractDomain(tt.fromEmail) == "child1-domain.com" {
-					// managed to managed のケース
-					managedIndex := -1
-					for i, mType := range afterMatrix.ManagementTypes {
-						if mType == "managed" {
-							managedIndex = i
-							break
-						}
-					}
-					require.NotEqual(t, -1, managedIndex, "Should have managed management type")
-					require.Equal(t, 1, afterMatrix.Matrix[managedIndex][0], "Should have one managed to managed merge")
-				} else if identity.ExtractDomain(tt.fromEmail) == "child2-ext-domain.com" {
-					// external to managed のケース
-					externalIndex := -1
-					managedIndex := -1
-					for i, mType := range afterMatrix.ManagementTypes {
-						if mType == "external" {
-							externalIndex = i
-						} else if mType == "managed" {
-							managedIndex = i
-						}
-					}
-					require.NotEqual(t, -1, externalIndex, "Should have external management type")
-					require.NotEqual(t, -1, managedIndex, "Should have managed management type")
-					require.Equal(t, 1, afterMatrix.Matrix[externalIndex][0], "Should have one external to managed merge")
-				}
-			} else {
-				// マージ対象外の場合の検証
-				require.Equal(t, beforeMatrix, afterMatrix, "Matrix should not change when no merges occur")
-				// マトリックスの値を検証
-				for i := range afterMatrix.ManagementTypes {
-					for j := range afterMatrix.Statuses {
-						require.Equal(t, beforeMatrix.Matrix[i][j], afterMatrix.Matrix[i][j],
-							fmt.Sprintf("Matrix value should not change at [%d][%d]", i, j))
-					}
-				}
-			}
-
-			// クリーンアップ
-			cleanupAllIdentities(t, ctx, client)
-
-			// プロキシを通過したリクエストの検証（TestMainでproxyRequestCounterが設定されている場合のみ）
-			if proxyRequestCounter != nil {
-				requestCount := proxyRequestCounter.Load()
-				writeTestLog("Proxy request count for test case '%s': %d", tt.name, requestCount)
-				require.Greater(t, requestCount, int64(0), "API requests should go through the proxy")
-			}
+			runE2ETestCase(t, ctx, client, tt)
 		})
 	}
+}
+
+// runE2ETestCase はテストケースを実行します
+func runE2ETestCase(t *testing.T, ctx context.Context, client *admina.Client, tt struct {
+	name       string
+	fromEmail  string
+	toEmail    string
+	shouldPass bool
+}) {
+	writeTestLog("\n=== Test Case: %s ===", tt.name)
+
+	// プロキシリクエストカウンターをリセット（各テストケースの開始時）
+	if proxyRequestCounter != nil {
+		proxyRequestCounter.Store(0)
+	}
+
+	// クリーンアップを実行
+	cleanupAllIdentities(t, ctx, client)
+
+	// fromIdentityの作成
+	fromIdentity := findIdentityInCSV(t, tt.fromEmail)
+	require.NotNil(t, fromIdentity, "Failed to find from identity in CSV")
+	id, err := createIdentity(client, fromIdentity)
+	require.NoError(t, err, "Failed to create from identity")
+	addCreatedIdentityID(id)
+	writeTestLog("Created From Identity: %+v", fromIdentity)
+
+	// toIdentityの作成
+	toIdentity := findIdentityInCSV(t, tt.toEmail)
+	require.NotNil(t, toIdentity, "Failed to find to identity in CSV")
+	id, err = createIdentity(client, toIdentity)
+	require.NoError(t, err, "Failed to create to identity")
+	addCreatedIdentityID(id)
+	writeTestLog("Created To Identity: %+v", toIdentity)
+
+	// マージ前のマトリックスを取得
+	beforeMatrix, err := identity.GetIdentityMatrix(client)
+	require.NoError(t, err, "Failed to get identity matrix before merge")
+	writeTestLog("\nBefore Merge Matrix:\n%+v", beforeMatrix)
+
+	// マージを実行
+	err = identity.MergeIdentities(client, &identity.MergeConfig{
+		ParentDomain: "parent-domain.com",
+		ChildDomains: []string{"child1-domain.com", "child2-ext-domain.com"},
+		DryRun:       false,
+		AutoApprove:  true,
+		OutputFormat: "json",
+	})
+
+	if tt.shouldPass {
+		require.NoError(t, err, "Same merge should succeed")
+		// マージ結果の詳細な検証
+		verifyMergeResult(t, ctx, client, addTestRunID(tt.toEmail), addTestRunID(tt.fromEmail))
+	} else {
+		require.NoError(t, err, "Same merge should complete without error even if no merges occur")
+	}
+
+	// マージ後のマトリックスを取得
+	afterMatrix, err := identity.GetIdentityMatrix(client)
+	require.NoError(t, err, "Failed to get identity matrix after merge")
+	writeTestLog("\nAfter Merge Matrix:\n%+v", afterMatrix)
+
+	// マージ結果を検証
+	verifyMatrixAfterMerge(t, tt, beforeMatrix, afterMatrix)
+
+	// クリーンアップ
+	cleanupAllIdentities(t, ctx, client)
+
+	// プロキシを通過したリクエストの検証（TestMainでproxyRequestCounterが設定されている場合のみ）
+	if proxyRequestCounter != nil {
+		requestCount := proxyRequestCounter.Load()
+		writeTestLog("Proxy request count for test case '%s': %d", tt.name, requestCount)
+		require.Greater(t, requestCount, int64(0), "API requests should go through the proxy")
+	}
+}
+
+// verifyMatrixAfterMerge はマージ後のマトリックスが期待通りかどうかを検証します
+func verifyMatrixAfterMerge(t *testing.T, tt struct {
+	name       string
+	fromEmail  string
+	toEmail    string
+	shouldPass bool
+}, beforeMatrix, afterMatrix *identity.Matrix) {
+	if tt.shouldPass {
+		// マージが成功した場合の検証
+		require.NotEqual(t, beforeMatrix, afterMatrix, "Matrix should change after successful merge")
+
+		// マトリックスの期待値を検証
+		if identity.ExtractDomain(tt.fromEmail) == "child1-domain.com" {
+			verifyManagedToManagedMerge(t, afterMatrix)
+		} else if identity.ExtractDomain(tt.fromEmail) == "child2-ext-domain.com" {
+			verifyExternalToManagedMerge(t, afterMatrix)
+		}
+	} else {
+		// マージ対象外の場合の検証
+		require.Equal(t, beforeMatrix, afterMatrix, "Matrix should not change when no merges occur")
+
+		// マトリックスの値を検証
+		for i := range afterMatrix.ManagementTypes {
+			for j := range afterMatrix.Statuses {
+				require.Equal(t, beforeMatrix.Matrix[i][j], afterMatrix.Matrix[i][j],
+					fmt.Sprintf("Matrix value should not change at [%d][%d]", i, j))
+			}
+		}
+	}
+}
+
+// verifyManagedToManagedMerge はmanaged to managedのマージ結果を検証します
+func verifyManagedToManagedMerge(t *testing.T, matrix *identity.Matrix) {
+	managedIndex := -1
+	for i, mType := range matrix.ManagementTypes {
+		if mType == "managed" {
+			managedIndex = i
+			break
+		}
+	}
+	require.NotEqual(t, -1, managedIndex, "Should have managed management type")
+	require.Equal(t, 1, matrix.Matrix[managedIndex][0], "Should have one managed to managed merge")
+}
+
+// verifyExternalToManagedMerge はexternal to managedのマージ結果を検証します
+func verifyExternalToManagedMerge(t *testing.T, matrix *identity.Matrix) {
+	externalIndex := -1
+	managedIndex := -1
+	for i, mType := range matrix.ManagementTypes {
+		if mType == "external" {
+			externalIndex = i
+		} else if mType == "managed" {
+			managedIndex = i
+		}
+	}
+	require.NotEqual(t, -1, externalIndex, "Should have external management type")
+	require.NotEqual(t, -1, managedIndex, "Should have managed management type")
+	require.Equal(t, 1, matrix.Matrix[externalIndex][0], "Should have one external to managed merge")
 }
 
 // findIdentityInCSV はCSVファイルから指定されたメールアドレスのIdentityを探します

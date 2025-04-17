@@ -62,6 +62,7 @@ Admina SysUtils を使用するには、以下の環境変数を設定する必�
 
 - `ADMINA_CLI_ROOT`: プロジェクトのルートディレクトリ. この環境変数が設定されていない場合、バイナリを呼び出しているディレクトリをプロジェクトルートとして使用します。
 - `ADMINA_BASE_URL`: API のベース URL（デフォルトは https://api.itmc.i.moneyforward.com/api/v1）
+- `HTTPS_PROXY`/`HTTP_PROXY`: プロキシサーバーを経由して API にアクセスする場合に設定（例: http://proxy.example.com:8080）
 
 ## 出力ファイル
 
