@@ -1,0 +1,33 @@
+{
+  "meta": {
+    "statusCode": 200,
+    "nextCursor": "next-cursor-abc123",
+    "totalCount": 2,
+    "itemsPerPage": 100,
+    "currentPage": 1
+  },
+  "items": [
+    {
+      "id": "identity-1",
+      "organizationId": 123,
+      "peopleId": 1001,
+      "displayName": "テスト 太郎",
+      "managementType": "managed",
+      "employeeType": "full_time",
+      "employeeStatus": "active",
+      "primaryEmail": "test.taro@example.com",
+      "secondaryEmails": ["taro.secondary@example.com"]
+    },
+    {
+      "id": "identity-2",
+      "organizationId": 123,
+      "peopleId": 1002,
+      "displayName": "テスト 花子",
+      "managementType": "managed",
+      "employeeType": "contractor",
+      "employeeStatus": "active",
+      "primaryEmail": "test.hanako@example.com",
+      "secondaryEmails": []
+    }
+  ]
+}

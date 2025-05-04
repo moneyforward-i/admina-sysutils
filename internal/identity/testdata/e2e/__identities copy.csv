@@ -1,0 +1,17 @@
+id,firstName,lastName,displayName,primaryEmail,secondaryEmails,employeeId,managementType,employeeStatus,employeeType
+# パターン1: managed -> managed (成功)
+,Taro,Yamada1,Taro Yamada1,taro.yamada1@child1-domain.com,taro.yamada1@parent-domain.com,1001,managed,active,full_time_employee
+# パターン2: external -> managed (成功)
+,Hanako,Suzuki1,hanako.suzuki1,hanako.suzuki1@child2-ext-domain.com,hanako.suzuki1@parent-domain.com,1002,external,active,collaborator
+# パターン3: external -> external (成功)
+,Jiro,Tanaka1,Jiro Tanaka1,jiro.tanaka1@child2-ext-domain.com,jiro.tanaka1@child2-ext-domain.com,2001,external,active,collaborator
+# パターン4: unregistered -> managed (成功)
+,Ichiro,Sato1,Ichiro Sato1,ichiro.sato1@child1-domain.com,ichiro.sato1@parent-domain.com,3001,unregistered,active,unregistered
+# パターン5: unregistered -> external (成功)
+,Saburo,Kato1,Saburo Kato1,saburo.kato1@child2-ext-domain.com,saburo.kato1@child2-ext-domain.com,4001,unregistered,active,unregistered
+# パターン6: managed -> external (失敗)
+,Rokuro,Mori1,Rokuro Mori1,rokuro.mori1@child1-domain.com,rokuro.mori1@child2-ext-domain.com,5001,managed,active,full_time_employee
+# 単独レコード（マージなし）
+,Matsuo,Basho1,Matsuo Basho1,matsuo.basho1@parent-domain.com,,6001,managed,active,full_time_employee
+,Yosano,Akiko1,Yosano Akiko1,yosano.akiko1@child2-ext-domain.com,,6002,external,active,collaborator
+,Takahama,Kyoshi1,Takahama Kyoshi1,takahama.kyoshi1@parent-domain.com,,6003,unregistered,active,unregistered

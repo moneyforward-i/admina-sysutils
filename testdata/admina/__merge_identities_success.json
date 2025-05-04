@@ -1,0 +1,26 @@
+{
+  "meta": {
+    "statusCode": 200
+  },
+  "items": [
+    {
+      "id": "identity-2",
+      "organizationId": 123,
+      "peopleId": 1002,
+      "displayName": "テスト 花子",
+      "managementType": "managed",
+      "employeeType": "contractor",
+      "employeeStatus": "active",
+      "primaryEmail": "test.hanako@example.com",
+      "secondaryEmails": [],
+      "mergedPeople": [
+        {
+          "id": 1001,
+          "displayName": "テスト 太郎",
+          "primaryEmail": "test.taro@example.com",
+          "username": "test.taro"
+        }
+      ]
+    }
+  ]
+}

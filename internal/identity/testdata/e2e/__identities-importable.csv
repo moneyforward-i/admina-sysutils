@@ -1,0 +1,16 @@
+id,firstName,lastName,displayName,primaryEmail,secondaryEmails,employeeId,managementType,employeeStatus,employeeType
+,Taro,Yamada1,Taro Yamada1,1000.yamada.taro1@child1-domain.com,,1001-1000,managed,active,full_time_employee
+,Taro,Yamada2,Taro Yamada2,1000.yamada.taro1@parent-domain.com,,1002-1000,managed,active,full_time_employee
+,Hanako,Suzuki1,Hanako Suzuki1,1000.suzuki.hanako1@child2-ext-domain.com,,2001-1000,external,active,collaborator
+,Hanako,Suzuki2,Hanako Suzuki2,1000.suzuki.hanako1@parent-domain.com,,2002-1000,managed,active,full_time_employee
+,Jiro,Tanaka1,Jiro Tanaka1,1000.tanaka.jiro.11@child2-ext-domain.com,,3001-1000,external,active,collaborator
+,Jiro,Tanaka2,Jiro Tanaka2,1000.tanaka.jiro.22@child2-ext-domain.com,,3002-1000,external,active,collaborator
+,Ichiro,Sato1,Ichiro Sato1,1000.sato.ichiro1@child1-domain.com,,4001-1000,managed,active,full_time_employee
+,Ichiro,Sato2,Ichiro Sato2,1000.sato.ichiro1@parent-domain.com,,4002-1000,managed,active,full_time_employee
+,Saburo,Kato1,Saburo Kato1,1000.kato.saburo.11@child2-ext-domain.com,,5001-1000,external,active,collaborator
+,Saburo,Kato2,Saburo Kato2,1000.kato.saburo.22@child2-ext-domain.com,,5002-1000,external,active,collaborator
+,Rokuro,Mori1,Rokuro Mori1,1000.mori.rokuro1@child1-domain.com,,6001-1000,managed,active,full_time_employee
+,Rokuro,Mori2,Rokuro Mori2,1000.mori.rokuro1@child2-ext-domain.com,,6002-1000,external,active,collaborator
+,Matsuo,Basho1,Matsuo Basho1,1000.basho.matsuo1@parent-domain.com,,7001-1000,managed,active,full_time_employee
+,Yosano,Akiko1,Yosano Akiko1,1000.akiko.yosano1@child2-ext-domain.com,,7002-1000,external,active,collaborator
+,Takahama,Kyoshi1,Takahama Kyoshi1,1000.kyoshi.takahama@parent-domain.com,,7003-1000,managed,active,full_time_employee

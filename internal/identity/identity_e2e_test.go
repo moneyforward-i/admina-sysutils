@@ -25,8 +25,8 @@ import (
 
 const (
 	excludeEmail = "murakami.katsutoshi@i.moneyforward.com"
-	proxyUser    = "proxyuser" // プロキシサーバーの認証ユーザー名
-	proxyPass    = "proxypass" // プロキシサーバーの認証パスワード
+	proxyUser    = "proxyuser@example.com" // プロキシサーバーの認証ユーザー名
+	proxyPass    = "W1f!ITIpgyV*Ef2y"      // プロキシサーバーの認証パスワード
 )
 
 // テストで作成したIdentityのIDを記録する

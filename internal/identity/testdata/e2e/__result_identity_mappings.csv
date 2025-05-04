@@ -1,0 +1,4 @@
+ParentEmail,ParentIdentityID,ChildEmail,ChildIdentityID,Status
+yamada.taro1@parent-domain.com,WEV2CRD7SJ,yamada.taro1@child1-domain.com,GLYARZMGIK,
+sato.ichiro1@parent-domain.com,L3PFGRZNXF,sato.ichiro1@child1-domain.com,4UU1XLA4Q0,
+suzuki.hanako1@parent-domain.com,YPCLKOMH2W,suzuki.hanako1@child2-ext-domain.com,WNAIZLG17X,
