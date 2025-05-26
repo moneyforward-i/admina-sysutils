@@ -8,7 +8,10 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
+	"regexp"
+	"strings"
 	"time"
 
 	"github.com/moneyforward-i/admina-sysutils/internal/logger"
@@ -18,6 +21,118 @@ const (
 	DefaultBaseURL = "https://api.itmc.i.moneyforward.com/api/v1"
 	defaultTimeout = 30 * time.Second
 )
+
+// encodeUserInfo encodes characters that are not allowed in UserInfo according to RFC3986
+func encodeUserInfo(s string) string {
+	var builder strings.Builder
+	for _, r := range s {
+		// RFC3986 UserInfoで許容される文字（@は区切り文字なのでエンコード必須）
+		if ('a' <= r && r <= 'z') ||
+			('A' <= r && r <= 'Z') ||
+			('0' <= r && r <= '9') ||
+			strings.ContainsRune("-._~!$&'()*+,;=:", r) {
+			builder.WriteRune(r)
+		} else {
+			// それ以外はパーセントエンコード
+			builder.WriteString(fmt.Sprintf("%%%02X", r))
+		}
+	}
+	return builder.String()
+}
+
+// encodeProxyURL encodes special characters in proxy URL userinfo using net/url
+func encodeProxyURL(proxyURL string) string {
+	// まずnet/urlでパースを試行
+	parsedURL, err := url.Parse(proxyURL)
+	if err == nil && parsedURL.User != nil {
+		// 正常にパースできた場合の処理
+		username := parsedURL.User.Username()
+		password, hasPassword := parsedURL.User.Password()
+
+		// 環境変数で個別指定された値との比較チェック
+		validateProxyComponents(parsedURL.Scheme, username, password, parsedURL.Host)
+
+		// ユーザー名とパスワードを個別にエンコード
+		encodedUsername := encodeUserInfo(username)
+		if hasPassword {
+			encodedPassword := encodeUserInfo(password)
+			parsedURL.User = url.UserPassword(encodedUsername, encodedPassword)
+		} else {
+			parsedURL.User = url.User(encodedUsername)
+		}
+
+		return parsedURL.String()
+	}
+
+	// url.Parseが失敗した場合、または正常にパースできたがユーザー情報がない場合
+	// 正規表現を使用して手動でURLを解析
+	re := regexp.MustCompile(`^(https?://)(?:(.+?)@)?([^@]+)$`)
+	matches := re.FindStringSubmatch(proxyURL)
+	if len(matches) < 4 {
+		// パターンにマッチしない場合は元のURLを返す
+		return proxyURL
+	}
+
+	scheme := matches[1]
+	userInfo := matches[2]
+	host := matches[3]
+
+	if userInfo == "" {
+		// ユーザー情報がない場合
+		validateProxyComponents(scheme[:len(scheme)-3], "", "", host)
+		return proxyURL
+	}
+
+	// ユーザー情報をユーザー名とパスワードに分離
+	var username, password string
+	if colonIndex := strings.Index(userInfo, ":"); colonIndex != -1 {
+		username = userInfo[:colonIndex]
+		password = userInfo[colonIndex+1:]
+	} else {
+		username = userInfo
+	}
+
+	// 環境変数で個別指定された値との比較チェック
+	validateProxyComponents(scheme[:len(scheme)-3], username, password, host)
+
+	// ユーザー名とパスワードを個別にエンコード
+	encodedUsername := encodeUserInfo(username)
+	if password != "" {
+		encodedPassword := encodeUserInfo(password)
+		return scheme + encodedUsername + ":" + encodedPassword + "@" + host
+	} else {
+		return scheme + encodedUsername + "@" + host
+	}
+}
+
+// validateProxyComponents validates proxy components against environment variables
+func validateProxyComponents(parsedScheme, parsedUser, parsedPassword, parsedHost string) {
+	// 環境変数から個別設定値を取得
+	envSchema := os.Getenv("PROXY_SCHEMA")
+	envUser := os.Getenv("PROXY_USER")
+	envPassword := os.Getenv("PROXY_PASSWORD")
+	envHost := os.Getenv("PROXY_HOST")
+
+	// スキーマの比較
+	if envSchema != "" && envSchema != parsedScheme {
+		logger.LogWarning("Proxy schema mismatch - Environment: %s, Parsed: %s", envSchema, parsedScheme)
+	}
+
+	// ユーザー名の比較
+	if envUser != "" && envUser != parsedUser {
+		logger.LogWarning("Proxy user mismatch - Environment: %s, Parsed: %s", envUser, parsedUser)
+	}
+
+	// パスワードの比較
+	if envPassword != "" && envPassword != parsedPassword {
+		logger.LogWarning("Proxy password mismatch - Environment: %s, Parsed: %s", envPassword, parsedPassword)
+	}
+
+	// ホストの比較
+	if envHost != "" && envHost != parsedHost {
+		logger.LogWarning("Proxy host mismatch - Environment: %s, Parsed: %s", envHost, parsedHost)
+	}
+}
 
 // Client handles communication with the Admina API.
 type Client struct {
@@ -34,14 +149,27 @@ func NewClient() *Client {
 		baseURL = DefaultBaseURL
 	}
 
-	// Log proxy information if set
+	// 環境変数からプロキシURLを取得
 	proxyURLStr := os.Getenv("HTTPS_PROXY")
+	proxyEnvName := "HTTPS_PROXY"
 	if proxyURLStr == "" {
 		proxyURLStr = os.Getenv("HTTP_PROXY")
+		proxyEnvName = "HTTP_PROXY"
 	}
 
 	if proxyURLStr != "" {
 		logger.LogInfo("Proxy is used")
+		logger.LogDebug("Original proxy URL: %s", proxyURLStr)
+
+		// プロキシURLのエンコード処理
+		encodedURL := encodeProxyURL(proxyURLStr)
+		if encodedURL != proxyURLStr {
+			logger.LogDebug("Setting encoded proxy URL: %s", encodedURL)
+			err := os.Setenv(proxyEnvName, encodedURL)
+			if err != nil {
+				logger.LogInfo("Failed to update proxy environment variable: %v", err)
+			}
+		}
 		logger.LogDebug("Proxy URL: %s", proxyURLStr)
 	}
 

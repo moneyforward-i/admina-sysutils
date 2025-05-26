@@ -233,3 +233,299 @@ func TestAPIError_Error(t *testing.T) {
 		t.Error("APIError.Error() returned empty string")
 	}
 }
+
+func TestProxyURLEncoding(t *testing.T) {
+	tests := []struct {
+		name        string
+		inputURL    string
+		expected    string
+		shouldError bool
+	}{
+		{
+			name:     "backslash in username",
+			inputURL: "http://SSC\\999999:Sakatase99@172.16.10.10:2335",
+			expected: "http://SSC%5C999999:Sakatase99@172.16.10.10:2335",
+		},
+		{
+			name:     "special characters in password",
+			inputURL: "http://user:pass@word@proxy.example.com:8080",
+			expected: "http://user:pass%2540word@proxy.example.com:8080",
+		},
+		{
+			name:     "multiple special characters",
+			inputURL: "http://domain\\user@name:p@ss:w0rd@proxy.local:3128",
+			expected: "http://domain%5Cuser%40name:p%40ss:w0rd@proxy.local:3128",
+		},
+		{
+			name:     "no special characters",
+			inputURL: "http://normaluser:normalpass@proxy.test.com:8080",
+			expected: "http://normaluser:normalpass@proxy.test.com:8080",
+		},
+		{
+			name:     "proxy without user credentials",
+			inputURL: "http://proxy.example.com:8080",
+			expected: "http://proxy.example.com:8080",
+		},
+		{
+			name:     "https proxy without user credentials",
+			inputURL: "https://proxy.example.com:8080",
+			expected: "https://proxy.example.com:8080",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// 元の環境変数を保存
+			originalHTTPProxy := os.Getenv("HTTP_PROXY")
+			originalHTTPSProxy := os.Getenv("HTTPS_PROXY")
+			originalOrgID := os.Getenv("ADMINA_ORGANIZATION_ID")
+			originalAPIKey := os.Getenv("ADMINA_API_KEY")
+
+			// 環境変数を設定
+			os.Setenv("HTTP_PROXY", tt.inputURL)
+			os.Unsetenv("HTTPS_PROXY")
+			os.Setenv("ADMINA_ORGANIZATION_ID", "test-org")
+			os.Setenv("ADMINA_API_KEY", "test-key")
+
+			// NewClientを実行（プロキシURLのエンコーディングが実行される）
+			_ = NewClient()
+
+			// 環境変数から実際の結果を取得
+			encodedProxy := os.Getenv("HTTP_PROXY")
+
+			if encodedProxy != tt.expected {
+				t.Errorf("Expected encoded URL: %s, got: %s", tt.expected, encodedProxy)
+			}
+
+			// 環境変数を復元
+			if originalHTTPProxy != "" {
+				os.Setenv("HTTP_PROXY", originalHTTPProxy)
+			} else {
+				os.Unsetenv("HTTP_PROXY")
+			}
+			if originalHTTPSProxy != "" {
+				os.Setenv("HTTPS_PROXY", originalHTTPSProxy)
+			} else {
+				os.Unsetenv("HTTPS_PROXY")
+			}
+			if originalOrgID != "" {
+				os.Setenv("ADMINA_ORGANIZATION_ID", originalOrgID)
+			} else {
+				os.Unsetenv("ADMINA_ORGANIZATION_ID")
+			}
+			if originalAPIKey != "" {
+				os.Setenv("ADMINA_API_KEY", originalAPIKey)
+			} else {
+				os.Unsetenv("ADMINA_API_KEY")
+			}
+		})
+	}
+}
+
+func TestNewClientWithSpecialCharacterProxy(t *testing.T) {
+	// 元の環境変数を保存
+	originalHTTPProxy := os.Getenv("HTTP_PROXY")
+	originalHTTPSProxy := os.Getenv("HTTPS_PROXY")
+	originalOrgID := os.Getenv("ADMINA_ORGANIZATION_ID")
+	originalAPIKey := os.Getenv("ADMINA_API_KEY")
+
+	// テスト用環境変数を設定
+	os.Setenv("HTTP_PROXY", "http://SSC\\999999:Sakatase99@172.16.10.10:2335")
+	os.Unsetenv("HTTPS_PROXY")
+	os.Setenv("ADMINA_ORGANIZATION_ID", "test-org")
+	os.Setenv("ADMINA_API_KEY", "test-key")
+
+	// クライアント作成（エラーが発生しないことを確認）
+	client := NewClient()
+	if client == nil {
+		t.Fatal("NewClient returned nil")
+	}
+
+	// 環境変数がエンコードされていることを確認
+	encodedProxy := os.Getenv("HTTP_PROXY")
+	expected := "http://SSC%5C999999:Sakatase99@172.16.10.10:2335"
+	if encodedProxy != expected {
+		t.Errorf("Expected encoded proxy URL in environment: %s, got: %s", expected, encodedProxy)
+	}
+
+	// 環境変数を復元
+	if originalHTTPProxy != "" {
+		os.Setenv("HTTP_PROXY", originalHTTPProxy)
+	} else {
+		os.Unsetenv("HTTP_PROXY")
+	}
+	if originalHTTPSProxy != "" {
+		os.Setenv("HTTPS_PROXY", originalHTTPSProxy)
+	} else {
+		os.Unsetenv("HTTPS_PROXY")
+	}
+	if originalOrgID != "" {
+		os.Setenv("ADMINA_ORGANIZATION_ID", originalOrgID)
+	} else {
+		os.Unsetenv("ADMINA_ORGANIZATION_ID")
+	}
+	if originalAPIKey != "" {
+		os.Setenv("ADMINA_API_KEY", originalAPIKey)
+	} else {
+		os.Unsetenv("ADMINA_API_KEY")
+	}
+}
+
+func TestProxyComponentValidation(t *testing.T) {
+	tests := []struct {
+		name           string
+		proxyURL       string
+		envSchema      string
+		envUser        string
+		envPassword    string
+		envHost        string
+		expectMismatch bool
+		mismatchType   string
+	}{
+		{
+			name:           "all components match",
+			proxyURL:       "http://SSC\\999999:Sakatase99@172.16.10.10:2335",
+			envSchema:      "http",
+			envUser:        "SSC\\999999",
+			envPassword:    "Sakatase99",
+			envHost:        "172.16.10.10:2335",
+			expectMismatch: false,
+		},
+		{
+			name:           "schema mismatch",
+			proxyURL:       "http://user:pass@host:8080",
+			envSchema:      "https",
+			envUser:        "user",
+			envPassword:    "pass",
+			envHost:        "host:8080",
+			expectMismatch: true,
+			mismatchType:   "schema",
+		},
+		{
+			name:           "user mismatch",
+			proxyURL:       "http://user1:pass@host:8080",
+			envSchema:      "http",
+			envUser:        "user2",
+			envPassword:    "pass",
+			envHost:        "host:8080",
+			expectMismatch: true,
+			mismatchType:   "user",
+		},
+		{
+			name:           "password mismatch",
+			proxyURL:       "http://user:pass1@host:8080",
+			envSchema:      "http",
+			envUser:        "user",
+			envPassword:    "pass2",
+			envHost:        "host:8080",
+			expectMismatch: true,
+			mismatchType:   "password",
+		},
+		{
+			name:           "host mismatch",
+			proxyURL:       "http://user:pass@host1:8080",
+			envSchema:      "http",
+			envUser:        "user",
+			envPassword:    "pass",
+			envHost:        "host2:8080",
+			expectMismatch: true,
+			mismatchType:   "host",
+		},
+		{
+			name:           "no environment variables set",
+			proxyURL:       "http://user:pass@host:8080",
+			envSchema:      "",
+			envUser:        "",
+			envPassword:    "",
+			envHost:        "",
+			expectMismatch: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// 元の環境変数を保存
+			originalHTTPProxy := os.Getenv("HTTP_PROXY")
+			originalHTTPSProxy := os.Getenv("HTTPS_PROXY")
+			originalOrgID := os.Getenv("ADMINA_ORGANIZATION_ID")
+			originalAPIKey := os.Getenv("ADMINA_API_KEY")
+			originalProxySchema := os.Getenv("PROXY_SCHEMA")
+			originalProxyUser := os.Getenv("PROXY_USER")
+			originalProxyPassword := os.Getenv("PROXY_PASSWORD")
+			originalProxyHost := os.Getenv("PROXY_HOST")
+
+			// テスト用環境変数を設定
+			os.Setenv("HTTP_PROXY", tt.proxyURL)
+			os.Unsetenv("HTTPS_PROXY")
+			os.Setenv("ADMINA_ORGANIZATION_ID", "test-org")
+			os.Setenv("ADMINA_API_KEY", "test-key")
+
+			// プロキシコンポーネント検証用の環境変数を設定
+			if tt.envSchema != "" {
+				os.Setenv("PROXY_SCHEMA", tt.envSchema)
+			} else {
+				os.Unsetenv("PROXY_SCHEMA")
+			}
+			if tt.envUser != "" {
+				os.Setenv("PROXY_USER", tt.envUser)
+			} else {
+				os.Unsetenv("PROXY_USER")
+			}
+			if tt.envPassword != "" {
+				os.Setenv("PROXY_PASSWORD", tt.envPassword)
+			} else {
+				os.Unsetenv("PROXY_PASSWORD")
+			}
+			if tt.envHost != "" {
+				os.Setenv("PROXY_HOST", tt.envHost)
+			} else {
+				os.Unsetenv("PROXY_HOST")
+			}
+
+			// NewClientを実行（プロキシURLの検証が実行される）
+			_ = NewClient()
+
+			// 環境変数を復元
+			if originalHTTPProxy != "" {
+				os.Setenv("HTTP_PROXY", originalHTTPProxy)
+			} else {
+				os.Unsetenv("HTTP_PROXY")
+			}
+			if originalHTTPSProxy != "" {
+				os.Setenv("HTTPS_PROXY", originalHTTPSProxy)
+			} else {
+				os.Unsetenv("HTTPS_PROXY")
+			}
+			if originalOrgID != "" {
+				os.Setenv("ADMINA_ORGANIZATION_ID", originalOrgID)
+			} else {
+				os.Unsetenv("ADMINA_ORGANIZATION_ID")
+			}
+			if originalAPIKey != "" {
+				os.Setenv("ADMINA_API_KEY", originalAPIKey)
+			} else {
+				os.Unsetenv("ADMINA_API_KEY")
+			}
+			if originalProxySchema != "" {
+				os.Setenv("PROXY_SCHEMA", originalProxySchema)
+			} else {
+				os.Unsetenv("PROXY_SCHEMA")
+			}
+			if originalProxyUser != "" {
+				os.Setenv("PROXY_USER", originalProxyUser)
+			} else {
+				os.Unsetenv("PROXY_USER")
+			}
+			if originalProxyPassword != "" {
+				os.Setenv("PROXY_PASSWORD", originalProxyPassword)
+			} else {
+				os.Unsetenv("PROXY_PASSWORD")
+			}
+			if originalProxyHost != "" {
+				os.Setenv("PROXY_HOST", originalProxyHost)
+			} else {
+				os.Unsetenv("PROXY_HOST")
+			}
+		})
+	}
+}
