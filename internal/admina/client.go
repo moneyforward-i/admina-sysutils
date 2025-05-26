@@ -8,7 +8,6 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"net/url"
 	"os"
 	"regexp"
 	"strings"
@@ -170,6 +169,7 @@ func NewClient() *Client {
 				logger.LogInfo("Failed to update proxy environment variable: %v", err)
 			}
 		}
+		logger.LogDebug("Proxy URL: %s", proxyURLStr)
 	}
 
 	transport := &http.Transport{
