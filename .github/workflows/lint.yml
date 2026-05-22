@@ -16,5 +16,7 @@ jobs:
           go-version: "1.23"
       - name: Install dependencies
         run: make deps
+        env:
+          TAKUMI_GUARD_AUTH_TOKEN: ${{ secrets.TAKUMI_GUARD_AUTH_TOKEN }}
       - name: Run lint
         run: make lint

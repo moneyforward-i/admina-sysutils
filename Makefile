@@ -93,7 +93,7 @@ build-all:
 deps:
 	go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 	go install github.com/jstemmer/go-junit-report@latest
-	npm install xunit-viewer
+	TAKUMI_GUARD_AUTH_TOKEN=$${TAKUMI_GUARD_AUTH_TOKEN:-tg_anon_UwqeSKSfFsQKXmbnqh3VkN9mrQK2bH3HFM_q7kFMW5E} npm install xunit-viewer
 	go mod tidy
 	go mod verify
 
