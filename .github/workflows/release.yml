@@ -10,6 +10,12 @@ on:
 
 jobs:
   build:
+    # Grant OIDC scope to the reusable build.yml (Takumi Guard); a called
+    # workflow cannot exceed the caller's permissions, and the workflow-level
+    # block below sets id-token to none by default.
+    permissions:
+      id-token: write
+      contents: read
     uses: ./.github/workflows/build.yml
 
   release:
