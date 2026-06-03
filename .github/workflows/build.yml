@@ -15,11 +15,17 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write # required for Takumi Guard OIDC
+      contents: read
     outputs:
       build_status: ${{ job.status }}
       artifact_name: build-artifacts-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
       - uses: actions/checkout@v4
+      - uses: flatt-security/setup-takumi-guard-npm@9a5d797c2085b6326d3a2985c08e3a114b9b88c1 #v1.1.1
+        with:
+          bot-id: "BT01KSPTTXMY1DBFSFFSHVGJT8KA"
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
