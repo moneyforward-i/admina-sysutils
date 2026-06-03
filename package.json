@@ -1,4 +1,7 @@
 {
+  "engines": {
+    "npm": ">=11.10.0"
+  },
   "dependencies": {
     "xunit-viewer": "^10.6.1"
   }
