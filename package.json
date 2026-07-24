@@ -4,5 +4,8 @@
   },
   "dependencies": {
     "xunit-viewer": "^10.6.1"
+  },
+  "overrides": {
+    "handlebars": "4.7.9"
   }
 }
