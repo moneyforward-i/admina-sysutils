@@ -1,12 +1,12 @@
 package identity
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
 	"github.com/moneyforward-i/admina-sysutils/internal/admina"
 	"github.com/moneyforward-i/admina-sysutils/internal/logger"
-	"golang.org/x/net/context"
 )
 
 // Client interface defines the methods required for identity operations
